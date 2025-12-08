@@ -30,7 +30,7 @@ pub struct Cli {
     pub media_type: MediaTypeArg,
 
     /// Audio quality
-    #[arg(short, long, value_enum, default_value = "hires")]
+    #[arg(short, long, value_enum, default_value = "hi-res")]
     pub quality: QualityArg,
 
     /// Output directory
