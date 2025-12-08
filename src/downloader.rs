@@ -629,7 +629,7 @@ impl Downloader {
     fn get_file_extension(&self, playback_info: &TrackPlaybackInfoPostPaywallResponse) -> &str {
         // Determine file extension based on manifest type and MIME type
         match &playback_info.manifest_parsed {
-            Some(ManifestType::Dash(_)) => "m4a", // HiRes uses fragmented MP4 (m4a)
+            Some(ManifestType::Dash(_)) => "flac", // HiRes uses fragmented MP4 (m4a)
             Some(ManifestType::Json(json)) => {
                 // Standard qualities - check MIME type
                 if json.mime_type.contains("flac") {
