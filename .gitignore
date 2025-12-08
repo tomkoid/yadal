@@ -1,0 +1,13 @@
+/target
+
+# downloads
+downloads/
+/yadal
+
+# session data
+session.json
+
+# debug files
+*.mp4
+*.m4a
+*.flac
