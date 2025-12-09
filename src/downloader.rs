@@ -503,31 +503,61 @@ impl Downloader {
         output_path: &PathBuf,
         pb: Option<&ProgressBar>,
     ) -> Result<()> {
-        let mut combined_data = Vec::new();
-
         // Step 1: Download initialization segment (required for DASH)
-        if let Some(init_url) = dash.get_init_url() {
+        let init_data = if let Some(init_url) = dash.get_init_url() {
             if let Some(pb) = pb {
                 pb.set_message("Downloading init segment...");
             }
-            let init_data = self.download_segment(init_url).await?;
-            combined_data.extend_from_slice(&init_data);
+            self.download_segment(init_url).await?
         } else {
             anyhow::bail!("No initialization segment found");
-        }
+        };
 
-        // Step 2: Download media segments sequentially until we hit 3 consecutive failures
+        // Step 2: Download segments with adaptive discovery
+        // We'll download in batches and stop when we hit consecutive failures
+        let mut all_segments: Vec<(u32, Bytes)> = Vec::new();
         let mut segment_num = 1;
-        let mut consecutive_failures = 0;
-
+        let batch_size = 50; // Download 50 segments at a time
+        
         loop {
-            if let Some(segment_url) = dash.get_segment_url(segment_num) {
-                if let Some(pb) = pb {
-                    pb.set_message(format!("Downloading segment {}", segment_num));
+            // Prepare batch of segment URLs
+            let mut batch_urls = Vec::new();
+            for i in 0..batch_size {
+                if let Some(url) = dash.get_segment_url(segment_num + i) {
+                    batch_urls.push((segment_num + i, url));
+                } else {
+                    break;
                 }
-                match self.download_segment(&segment_url).await {
-                    Ok(segment_data) => {
-                        combined_data.extend_from_slice(&segment_data);
+            }
+            
+            if batch_urls.is_empty() {
+                break;
+            }
+            
+            if let Some(pb) = pb {
+                pb.set_message(format!("Downloading segments {}-{}...", segment_num, segment_num + batch_urls.len() as u32 - 1));
+            }
+            
+            // Download batch in parallel
+            let batch_results = stream::iter(batch_urls)
+                .map(|(num, url)| async move {
+                    match self.download_segment(&url).await {
+                        Ok(data) => Ok((num, data)),
+                        Err(e) => Err((num, e)),
+                    }
+                })
+                .buffer_unordered(20)
+                .collect::<Vec<_>>()
+                .await;
+            
+            // Check results
+            let mut consecutive_failures = 0;
+            let mut batch_segments = Vec::new();
+            
+            for result in batch_results {
+                match result {
+                    Ok((num, data)) => {
+                        batch_segments.push((num, data));
                         consecutive_failures = 0;
                     }
                     Err(_) => {
@@ -537,10 +567,35 @@ impl Downloader {
                         }
                     }
                 }
-            } else {
+            }
+            
+            // If we got no segments in this batch, we're done
+            if batch_segments.is_empty() {
                 break;
             }
-            segment_num += 1;
+            
+            all_segments.extend(batch_segments);
+            segment_num += batch_size;
+            
+            // Stop if we hit too many failures
+            if consecutive_failures >= 3 {
+                break;
+            }
+        }
+
+        if let Some(pb) = pb {
+            pb.set_message("Combining segments...");
+        }
+
+        // Step 3: Sort and combine
+        all_segments.sort_by_key(|(num, _)| *num);
+        
+        let total_size = init_data.len() + all_segments.iter().map(|(_, data)| data.len()).sum::<usize>();
+        let mut combined_data = Vec::with_capacity(total_size);
+        combined_data.extend_from_slice(&init_data);
+        
+        for (_, segment_data) in all_segments {
+            combined_data.extend_from_slice(&segment_data);
         }
 
         if let Some(pb) = pb {
