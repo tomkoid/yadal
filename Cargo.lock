@@ -1546,7 +1546,8 @@ dependencies = [
 
 [[package]]
 name = "tidlers"
-version = "0.1.1"
+version = "0.2.0"
+source = "git+https://codeberg.org/tomkoid/tidlers#904fdfa207a7018dc2de932c5d23201efb064b3b"
 dependencies = [
  "base64",
  "quick-xml",
