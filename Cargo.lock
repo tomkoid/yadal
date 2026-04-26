@@ -233,7 +233,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users 0.5.2",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -275,7 +275,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1048,7 +1048,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.60.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1232,7 +1232,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1501,7 +1501,7 @@ dependencies = [
  "getrandom 0.3.4",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1546,8 +1546,8 @@ dependencies = [
 
 [[package]]
 name = "tidlers"
-version = "0.1.0"
-source = "git+https://codeberg.org/tomkoid/tidlers#820853078d57226b3e814409e809d8eaaf9bab3b"
+version = "0.1.1"
+source = "git+https://codeberg.org/tomkoid/tidlers#bc02f7ce8af283db2439f1097b66bf30cbeb5c2b"
 dependencies = [
  "base64",
  "quick-xml",
