@@ -10,12 +10,11 @@ This project serves as a practical showcase of [Tidlers](https://codeberg.org/to
 
 - Download tracks, albums, and playlists from TIDAL
 - Support for multiple audio quality levels: low, high, lossless, and hi-res
-- Parallel downloads with configurable concurrency
-- OAuth authentication with automatic token management
+- Parallel downloads
 - Session persistence across runs
-- Platform-specific configuration storage (follows XDG standards on Linux)
+- Works on Linux, macOS, and Windows (likely even more if you would want to)
 - Progress indicators for downloads
-- Automatic metadata tagging and file organization
+- Automatic file organization
 
 ## Installation
 
@@ -100,29 +99,17 @@ Session files are stored in platform-specific locations:
 
 Sessions are automatically refreshed when needed, so you only need to authenticate once.
 
-## About Tidlers
-
-This project is built using [Tidlers](https://codeberg.org/tomkoid/tidlers), a Rust library that provides a clean interface to the TIDAL API. Tidlers handles:
-
-- OAuth authentication flow
-- Session management and token refresh
-- API endpoint access for tracks, albums, playlists, and more
-- Streaming URL generation
-- User and subscription management
-
-If you're building your own TIDAL integration in Rust, check out [Tidlers](https://codeberg.org/tomkoid/tidlers).
-
 ## Why Another TIDAL Downloader?
 
-While several TIDAL downloaders exist, Yadal offers:
+While several TIDAL downloaders exist, Yadal has:
 
 - Efficient parallel downloads
-- Clean OAuth authentication flow that persists across sessions
 - Support for high-resolution audio formats
 - Cross-platform support (Linux, macOS, Windows, probably more)
-- Simple URL parsing that accepts both full URLs and raw media IDs
+- Accepts both full URLs and raw media IDs
+- Accepts multiple media types (tracks, albums, playlists) in a single command
 
 ## Requirements
 
 - Rust 1.70 or later
-- Active TIDAL subscription (required for high-quality downloads)
+- Active TIDAL subscription
