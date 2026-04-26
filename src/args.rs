@@ -34,8 +34,8 @@ pub struct Cli {
     pub quality: QualityArg,
 
     /// Output directory
-    #[arg(short, long, default_value = "yadal")]
-    pub output: PathBuf,
+    #[arg(short, long, default_value = None)]
+    pub output: Option<PathBuf>,
 
     /// Maximum parallel downloads
     #[arg(short, long, default_value = "5")]

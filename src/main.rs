@@ -66,14 +66,31 @@ async fn main() -> Result<()> {
         MediaTypeArg::Playlist => MediaType::Playlist,
     };
 
+    let output_path = match cli.output {
+        Some(path) => path,
+        None => {
+            let audio_dir = dirs::audio_dir().context("Failed to get user's music directory")?;
+            let yadal_audio_dir = audio_dir.join("yadal");
+
+            if yadal_audio_dir.exists() {
+                yadal_audio_dir
+            } else {
+                std::fs::create_dir_all(&yadal_audio_dir)
+                    .context("Failed to create yadal directory in music directory")?;
+
+                yadal_audio_dir
+            }
+        }
+    };
+
     println!("media type: {:?}", media_type);
-    println!("output directory: {}\n", cli.output.display());
+    println!("output directory: {}\n", output_path.display());
 
     // create output directory
-    std::fs::create_dir_all(&cli.output).context("Failed to create output directory")?;
+    std::fs::create_dir_all(&output_path).context("Failed to create output directory")?;
 
     // create downloader
-    let downloader = Downloader::new(cli.output, cli.parallel);
+    let downloader = Downloader::new(output_path, cli.parallel);
 
     // download based on type
     match media_type {

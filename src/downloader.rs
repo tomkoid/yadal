@@ -348,7 +348,7 @@ impl Downloader {
 
                     let track_id = track.id.to_string();
                     let result = {
-                        let mut client_guard = client.lock().await;
+                        let client_guard = client.lock().await;
                         client_guard
                             .get_track_postpaywall_playback_info(track_id)
                             .await
