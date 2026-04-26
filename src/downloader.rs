@@ -518,7 +518,7 @@ impl Downloader {
         let mut all_segments: Vec<(u32, Bytes)> = Vec::new();
         let mut segment_num = 1;
         let batch_size = 50; // Download 50 segments at a time
-        
+
         loop {
             // Prepare batch of segment URLs
             let mut batch_urls = Vec::new();
@@ -529,15 +529,19 @@ impl Downloader {
                     break;
                 }
             }
-            
+
             if batch_urls.is_empty() {
                 break;
             }
-            
+
             if let Some(pb) = pb {
-                pb.set_message(format!("Downloading segments {}-{}...", segment_num, segment_num + batch_urls.len() as u32 - 1));
+                pb.set_message(format!(
+                    "Downloading segments {}-{}...",
+                    segment_num,
+                    segment_num + batch_urls.len() as u32 - 1
+                ));
             }
-            
+
             // Download batch in parallel
             let batch_results = stream::iter(batch_urls)
                 .map(|(num, url)| async move {
@@ -549,11 +553,11 @@ impl Downloader {
                 .buffer_unordered(20)
                 .collect::<Vec<_>>()
                 .await;
-            
+
             // Check results
             let mut consecutive_failures = 0;
             let mut batch_segments = Vec::new();
-            
+
             for result in batch_results {
                 match result {
                     Ok((num, data)) => {
@@ -568,15 +572,15 @@ impl Downloader {
                     }
                 }
             }
-            
+
             // If we got no segments in this batch, we're done
             if batch_segments.is_empty() {
                 break;
             }
-            
+
             all_segments.extend(batch_segments);
             segment_num += batch_size;
-            
+
             // Stop if we hit too many failures
             if consecutive_failures >= 3 {
                 break;
@@ -589,11 +593,15 @@ impl Downloader {
 
         // Step 3: Sort and combine
         all_segments.sort_by_key(|(num, _)| *num);
-        
-        let total_size = init_data.len() + all_segments.iter().map(|(_, data)| data.len()).sum::<usize>();
+
+        let total_size = init_data.len()
+            + all_segments
+                .iter()
+                .map(|(_, data)| data.len())
+                .sum::<usize>();
         let mut combined_data = Vec::with_capacity(total_size);
         combined_data.extend_from_slice(&init_data);
-        
+
         for (_, segment_data) in all_segments {
             combined_data.extend_from_slice(&segment_data);
         }
