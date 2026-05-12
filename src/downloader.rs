@@ -266,7 +266,13 @@ impl Downloader {
 
         loop {
             let items = client
-                .get_playlist_items(playlist_id.to_string(), Some(limit), Some(offset))
+                .get_playlist_items(
+                    playlist_id.to_string(),
+                    Some(limit),
+                    Some(offset),
+                    None,
+                    None,
+                )
                 .await
                 .context("Failed to get playlist tracks")?;
 
