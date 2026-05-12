@@ -1602,8 +1602,8 @@ dependencies = [
 
 [[package]]
 name = "tidlers"
-version = "0.2.0"
-source = "git+https://codeberg.org/tomkoid/tidlers#27dc721676f6a5d1d100c2da4ff0c1829454e60a"
+version = "0.3.0"
+source = "git+https://codeberg.org/tomkoid/tidlers#a59597ad23f16317161812cecb23f2b8dff8d833"
 dependencies = [
  "base64",
  "quick-xml",
