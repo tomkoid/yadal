@@ -83,14 +83,21 @@ Use custom session file location:
 yadal --session-file /path/to/session.json https://tidal.com/track/341764697
 ```
 
+Use legacy OAuth2 device flow:
+```bash
+yadal --oauth2 https://tidal.com/track/341764697
+```
+
 ## Authentication
 
-On first run, Yadal will initiate an OAuth flow:
+On first run, Yadal will initiate a PKCE flow by default:
 
-1. A URL and code will be displayed in your terminal
-2. Visit the URL and enter the code (or use the direct link)
-3. Authorize the application in your browser
+1. A login URL will be displayed in your terminal
+2. Visit the URL and authorize the application in your browser
+3. After redirect to an error page, copy and paste the full redirect URL back into the terminal
 4. The session will be saved automatically
+
+If you pass `--oauth2`, Yadal will use the legacy OAuth2 device flow instead.
 
 Session files are stored in platform-specific locations:
 - Linux: `~/.local/share/yadal/session.json`

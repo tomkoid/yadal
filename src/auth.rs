@@ -1,8 +1,9 @@
 use anyhow::{Context, Result};
+use std::io;
 use std::path::Path;
 use tidlers::{auth::init::TidalAuth, client::TidalClient};
 
-pub async fn load_or_authenticate(session_file: &Path) -> Result<TidalClient> {
+pub async fn load_or_authenticate(session_file: &Path, use_oauth2: bool) -> Result<TidalClient> {
     // try to load existing session
     if session_file.exists() {
         println!("loading session from {}...", session_file.display());
@@ -42,40 +43,59 @@ pub async fn load_or_authenticate(session_file: &Path) -> Result<TidalClient> {
         println!("no session found. authenticating...\n");
     }
 
-    authenticate(session_file).await
+    authenticate(session_file, use_oauth2).await
 }
 
-pub async fn authenticate(session_file: &Path) -> Result<TidalClient> {
-    // create new client with OAuth
-    let auth = TidalAuth::with_oauth();
+pub async fn authenticate(session_file: &Path, use_oauth2: bool) -> Result<TidalClient> {
+    let auth = if use_oauth2 {
+        TidalAuth::with_oauth()
+    } else {
+        TidalAuth::with_pkce()
+    };
     let mut client = TidalClient::new(&auth);
 
-    // handle OAuth flow
-    if client.waiting_for_oauth_login() {
-        let oauth_response = client
-            .get_oauth_link()
-            .await
-            .context("Failed to get OAuth link")?;
+    if use_oauth2 {
+        if client.waiting_for_oauth_login() {
+            let oauth_response = client
+                .get_oauth_link()
+                .await
+                .context("Failed to get OAuth link")?;
 
-        println!(
-            "please visit and sign in: https://{:<24}",
-            oauth_response.verification_uri_complete
-        );
+            println!(
+                "please visit and sign in: https://{:<24}",
+                oauth_response.verification_uri_complete
+            );
+            println!("waiting for authorization...");
 
-        println!("waiting for authorization...");
+            client
+                .wait_for_oauth(
+                    &oauth_response.device_code,
+                    oauth_response.expires_in,
+                    oauth_response.interval,
+                    None,
+                )
+                .await
+                .context("OAuth flow failed")?;
+        }
+    } else {
+        let login_url = client
+            .initiate_pkce_login()
+            .context("Failed to initiate PKCE login")?;
+        println!("please visit and sign in: {}", login_url);
+        println!("after browser redirect, paste the full redirect URL:");
+
+        let mut redirect_url = String::new();
+        io::stdin()
+            .read_line(&mut redirect_url)
+            .context("Failed to read redirect URL from stdin")?;
 
         client
-            .wait_for_oauth(
-                &oauth_response.device_code,
-                oauth_response.expires_in,
-                oauth_response.interval,
-                None,
-            )
+            .finish_pkce_login(redirect_url.trim())
             .await
-            .context("OAuth flow failed")?;
-
-        println!("authorization successful!\n");
+            .context("PKCE flow failed")?;
     }
+
+    println!("authorization successful!\n");
 
     // get user info
     client

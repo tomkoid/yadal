@@ -45,6 +45,10 @@ pub struct Cli {
     #[arg(long)]
     pub reauth: bool,
 
+    /// Use legacy OAuth2 device flow instead of PKCE
+    #[arg(long)]
+    pub oauth2: bool,
+
     /// Session file path
     #[arg(long, value_parser, default_value_os_t = default_session_file())]
     pub session_file: PathBuf,

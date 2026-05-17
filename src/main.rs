@@ -47,9 +47,9 @@ async fn main() -> Result<()> {
     // authenticate
     let mut client = if cli.reauth {
         println!("forcing re-authentication...\n");
-        authenticate(&cli.session_file).await?
+        authenticate(&cli.session_file, cli.oauth2).await?
     } else {
-        load_or_authenticate(&cli.session_file).await?
+        load_or_authenticate(&cli.session_file, cli.oauth2).await?
     };
 
     // set audio quality
