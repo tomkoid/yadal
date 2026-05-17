@@ -1,6 +1,6 @@
 [package]
 name = "yadal"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 publish = false
 
@@ -14,7 +14,7 @@ bytes = "1.9"
 serde_json = "1.0"
 anyhow = "1.0"
 indicatif = "0.17"
-tidlers = { git = "https://codeberg.org/tomkoid/tidlers" }
+tidlers = { git = "https://codeberg.org/tomkoid/tidlers", version = "0.4.0" }
 # tidlers = { path = "/home/tom/Coding/rust/tidlers" }
 directories = "5.0"
 dirs = "6.0.0"
