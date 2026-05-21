@@ -197,7 +197,12 @@ impl Downloader {
         Ok(())
     }
 
-    pub async fn download_album(&self, client: &mut TidalClient, album_id: &str) -> Result<()> {
+    pub async fn download_album(
+        &self,
+        client: &mut TidalClient,
+        album_id: &str,
+        force_recheck: bool,
+    ) -> Result<()> {
         let album = client
             .get_album(album_id.to_string())
             .await
@@ -234,15 +239,55 @@ impl Downloader {
             offset += limit;
         }
 
-        self.download_tracks_parallel(
-            client, all_tracks, &album_dir, false, // use original track numbers
-        )
-        .await
+        let mut already_downloaded = 0usize;
+        let tracks_to_download = if force_recheck {
+            all_tracks
+        } else {
+            let mut filtered = Vec::new();
+            for track in all_tracks {
+                if self.track_exists_in_directory(&album_dir, track.track_number, &track.title) {
+                    already_downloaded += 1;
+                } else {
+                    filtered.push(track);
+                }
+            }
+            filtered
+        };
+
+        if already_downloaded > 0 {
+            println!(
+                "skipping {} tracks already in directory (use --force-recheck to revalidate)\n",
+                already_downloaded
+            );
+        }
+
+        if tracks_to_download.is_empty() {
+            let summary = DownloadSummary {
+                downloaded: 0,
+                skipped: already_downloaded,
+                failed: Vec::new(),
+            };
+            summary.print();
+            return Ok(());
+        }
+
+        let mut summary = self
+            .download_tracks_parallel(
+                client,
+                tracks_to_download,
+                &album_dir,
+                false, // use original track numbers
+            )
+            .await?;
+        summary.skipped += already_downloaded;
+        summary.print();
+        Ok(())
     }
     pub async fn download_playlist(
         &self,
         client: &mut TidalClient,
         playlist_id: &str,
+        force_recheck: bool,
     ) -> Result<()> {
         let playlist = client
             .get_playlist(playlist_id.to_string())
@@ -286,13 +331,53 @@ impl Downloader {
             offset += limit;
         }
 
-        self.download_tracks_parallel(
-            client,
-            all_tracks,
-            &playlist_dir,
-            true, // use playlist position as track number
-        )
-        .await
+        let mut already_downloaded = 0usize;
+        let tracks_to_download = if force_recheck {
+            all_tracks
+        } else {
+            all_tracks
+                .into_iter()
+                .enumerate()
+                .filter_map(|(index, track)| {
+                    let track_number = (index + 1) as u32;
+                    if self.track_exists_in_directory(&playlist_dir, track_number, &track.title) {
+                        already_downloaded += 1;
+                        None
+                    } else {
+                        Some(track)
+                    }
+                })
+                .collect::<Vec<_>>()
+        };
+
+        if already_downloaded > 0 {
+            println!(
+                "skipping {} tracks already in directory (use --force-recheck to revalidate)\n",
+                already_downloaded
+            );
+        }
+
+        if tracks_to_download.is_empty() {
+            let summary = DownloadSummary {
+                downloaded: 0,
+                skipped: already_downloaded,
+                failed: Vec::new(),
+            };
+            summary.print();
+            return Ok(());
+        }
+
+        let mut summary = self
+            .download_tracks_parallel(
+                client,
+                tracks_to_download,
+                &playlist_dir,
+                true, // use playlist position as track number
+            )
+            .await?;
+        summary.skipped += already_downloaded;
+        summary.print();
+        Ok(())
     }
 
     async fn download_tracks_parallel(
@@ -301,7 +386,7 @@ impl Downloader {
         tracks: Vec<Track>,
         output_dir: &PathBuf,
         use_index_as_track_number: bool,
-    ) -> Result<()> {
+    ) -> Result<DownloadSummary> {
         println!(
             "\ndownloading {} tracks in parallel (max {})...\n",
             tracks.len(),
@@ -429,8 +514,7 @@ impl Downloader {
             .collect::<Vec<_>>()
             .await;
 
-        DownloadSummary::from_results(results).print();
-        Ok(())
+        Ok(DownloadSummary::from_results(results))
     }
     async fn download_track_with_info_pb(
         &self,
@@ -733,5 +817,13 @@ impl Downloader {
             }
             None => "m4a",
         }
+    }
+
+    fn track_exists_in_directory(&self, output_dir: &PathBuf, track_number: u32, title: &str) -> bool {
+        let base_name = format!("{:03} - {}", track_number, sanitize_filename::sanitize(title));
+        let possible_extensions = ["m4a", "flac", "mp3"];
+        possible_extensions
+            .iter()
+            .any(|ext| output_dir.join(format!("{}.{}", base_name, ext)).exists())
     }
 }

@@ -49,6 +49,10 @@ pub struct Cli {
     #[arg(long)]
     pub oauth2: bool,
 
+    /// For album/playlist downloads, recheck every track via API even if a matching local file exists
+    #[arg(long)]
+    pub force_recheck: bool,
+
     /// Session file path
     #[arg(long, value_parser, default_value_os_t = default_session_file())]
     pub session_file: PathBuf,

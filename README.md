@@ -88,6 +88,11 @@ Use legacy OAuth2 device flow:
 yadal --oauth2 https://tidal.com/track/341764697
 ```
 
+Force album/playlist recheck (old behavior):
+```bash
+yadal --force-recheck https://tidal.com/album/55130630
+```
+
 ## Authentication
 
 On first run, Yadal will initiate a PKCE flow by default:

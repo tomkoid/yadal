@@ -100,11 +100,15 @@ async fn main() -> Result<()> {
         }
         MediaType::Album => {
             println!("downloading album {}...\n", media_id);
-            downloader.download_album(&mut client, &media_id).await?;
+            downloader
+                .download_album(&mut client, &media_id, cli.force_recheck)
+                .await?;
         }
         MediaType::Playlist => {
             println!("downloading playlist {}...\n", media_id);
-            downloader.download_playlist(&mut client, &media_id).await?;
+            downloader
+                .download_playlist(&mut client, &media_id, cli.force_recheck)
+                .await?;
         }
     }
 
