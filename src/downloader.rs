@@ -509,6 +509,17 @@ impl Downloader {
         output_path: &PathBuf,
         pb: Option<&ProgressBar>,
     ) -> Result<()> {
+        if let Some(pb) = pb {
+            pb.set_length(1);
+            pb.set_position(0);
+            pb.set_style(
+                ProgressStyle::default_bar()
+                    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} segments ({eta})")
+                    .unwrap()
+                    .progress_chars("#>-"),
+            );
+        }
+
         // Step 1: Download initialization segment (required for DASH)
         let init_data = if let Some(init_url) = dash.get_init_url() {
             if let Some(pb) = pb {
@@ -541,6 +552,10 @@ impl Downloader {
             }
 
             if let Some(pb) = pb {
+                let known_total = (segment_num - 1) as u64 + batch_urls.len() as u64;
+                if pb.length().unwrap_or(0) < known_total {
+                    pb.set_length(known_total);
+                }
                 pb.set_message(format!(
                     "Downloading segments {}-{}...",
                     segment_num,
@@ -569,6 +584,10 @@ impl Downloader {
                     Ok((num, data)) => {
                         batch_segments.push((num, data));
                         consecutive_failures = 0;
+                        if let Some(pb) = pb {
+                            pb.inc(1);
+                            pb.set_message(format!("Downloaded segment {}", num));
+                        }
                     }
                     Err(_) => {
                         consecutive_failures += 1;
@@ -594,6 +613,9 @@ impl Downloader {
         }
 
         if let Some(pb) = pb {
+            let downloaded_segments = pb.position();
+            pb.set_length(downloaded_segments.max(1));
+            pb.set_position(downloaded_segments);
             pb.set_message("Combining segments...");
         }
 
