@@ -651,25 +651,14 @@ impl Downloader {
             sanitize_filename::sanitize(&track.title)
         );
 
-        // check if file exists with current extension
-        let output_path = output_dir.join(format!("{}.{}", base_name, extension));
-
-        if output_path.exists() {
+        if self
+            .find_existing_track_path(output_dir, &base_name)
+            .is_some()
+        {
             return Ok(false); // file was skipped
         }
 
-        // check if file exists with different extension (different quality already downloaded)
-        let possible_extensions = ["m4a", "flac", "mp3"];
-        for ext in &possible_extensions {
-            if ext != &extension {
-                let other_path = output_dir.join(format!("{}.{}", base_name, ext));
-                if other_path.exists() {
-                    // delete the old file to replace it with new quality
-                    std::fs::remove_file(&other_path)
-                        .context("Failed to remove old file with different quality")?;
-                }
-            }
-        }
+        let output_path = output_dir.join(format!("{}.{}", base_name, extension));
 
         match &playback_info.manifest_parsed {
             Some(ManifestType::Dash(dash)) => {
@@ -1012,6 +1001,16 @@ impl Downloader {
         Ok(declared.to_string())
     }
 
+    fn find_existing_track_path(&self, output_dir: &Path, base_name: &str) -> Option<PathBuf> {
+        for ext in ["flac", "m4a", "mp3"] {
+            let path = output_dir.join(format!("{}.{}", base_name, ext));
+            if path.exists() {
+                return Some(path);
+            }
+        }
+        None
+    }
+
     async fn fetch_cover_picture(&self, cover_url: &str) -> Result<Picture> {
         let response = self
             .http_client
@@ -1043,6 +1042,19 @@ impl Downloader {
 
     fn get_file_extension(&self, playback_info: &TrackPlaybackInfoPostPaywallResponse) -> &str {
         // Determine file extension based on manifest type and MIME type
+        match &playback_info.manifest_parsed {
+            Some(ManifestType::Dash(_)) => return "flac", // DASH is used for HiRes streams
+            Some(ManifestType::Json(json)) => {
+                if json.mime_type.contains("flac") {
+                    return "flac";
+                }
+                if json.mime_type.contains("mp4") || json.mime_type.contains("m4a") {
+                    return "m4a";
+                }
+            }
+            None => {}
+        }
+
         if let Some(mime_type) = playback_info.get_mime_type() {
             let mime_type = mime_type.to_ascii_lowercase();
             if mime_type.contains("flac") && !mime_type.contains("mp4") {
@@ -1053,17 +1065,7 @@ impl Downloader {
             }
         }
 
-        match &playback_info.manifest_parsed {
-            Some(ManifestType::Dash(_)) => "m4a", // DASH uses fragmented MP4 container
-            Some(ManifestType::Json(json)) => {
-                if json.mime_type.contains("flac") {
-                    "flac"
-                } else {
-                    "m4a"
-                }
-            }
-            None => "m4a",
-        }
+        "m4a"
     }
 
     fn track_exists_in_directory(
