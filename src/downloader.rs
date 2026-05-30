@@ -1054,31 +1054,51 @@ impl Downloader {
     }
 
     fn get_file_extension(&self, playback_info: &TrackPlaybackInfoPostPaywallResponse) -> &str {
-        // Determine file extension based on manifest type and MIME type
-        match &playback_info.manifest_parsed {
-            Some(ManifestType::Dash(_)) => return "flac", // DASH is used for HiRes streams
-            Some(ManifestType::Json(json)) => {
-                if json.mime_type.contains("flac") {
-                    return "flac";
-                }
-                if json.mime_type.contains("mp4") || json.mime_type.contains("m4a") {
-                    return "m4a";
-                }
+        // Determine file extension based on stream codec first, then MIME type
+        if let Some(codecs) = playback_info.get_codecs() {
+            if let Some(ext) = Self::extension_from_codecs(&codecs) {
+                return ext;
             }
-            None => {}
         }
 
         if let Some(mime_type) = playback_info.get_mime_type() {
-            let mime_type = mime_type.to_ascii_lowercase();
-            if mime_type.contains("flac") && !mime_type.contains("mp4") {
-                return "flac";
-            }
-            if mime_type.contains("mp4") || mime_type.contains("m4a") {
-                return "m4a";
+            if let Some(ext) = Self::extension_from_mime_type(&mime_type) {
+                return ext;
             }
         }
 
         "m4a"
+    }
+
+    fn extension_from_codecs(codecs: &str) -> Option<&'static str> {
+        let codecs = codecs.to_ascii_lowercase();
+        if codecs.contains("flac") {
+            return Some("flac");
+        }
+        if codecs.contains("mp4a") || codecs.contains("aac") || codecs.contains("alac") {
+            return Some("m4a");
+        }
+        if codecs.contains("mp3") {
+            return Some("mp3");
+        }
+        None
+    }
+
+    fn extension_from_mime_type(mime_type: &str) -> Option<&'static str> {
+        let mime_type = mime_type.to_ascii_lowercase();
+        if mime_type.contains("flac") && !mime_type.contains("mp4") {
+            return Some("flac");
+        }
+        if mime_type.contains("mp4") || mime_type.contains("m4a") {
+            return Some("m4a");
+        }
+        if mime_type.contains("ogg") {
+            return Some("ogg");
+        }
+        if mime_type.contains("mpeg") || mime_type.contains("mp3") {
+            return Some("mp3");
+        }
+        None
     }
 
     fn track_exists_in_directory(
