@@ -14,7 +14,8 @@ bytes = "1.9"
 serde_json = "1.0"
 anyhow = "1.0"
 indicatif = "0.17"
-tidlers = { git = "https://codeberg.org/tomkoid/tidlers", version = "0.4.0" }
+multitag = "0.4.3"
+tidlers = { git = "https://codeberg.org/tomkoid/tidlers", version = "0.4.1" }
 # tidlers = { path = "/home/tom/Coding/rust/tidlers" }
 directories = "5.0"
 dirs = "6.0.0"

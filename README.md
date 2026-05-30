@@ -15,6 +15,7 @@ This project serves as a practical showcase of [Tidlers](https://codeberg.org/to
 - Works on Linux, macOS, and Windows (likely even more if you would want to)
 - Progress indicators for downloads
 - Automatic file organization
+- Tags downloaded audio with TIDAL metadata (title, artist, album, cover art)
 
 ## Installation
 

@@ -2,13 +2,23 @@ use anyhow::{Context, Result};
 use bytes::Bytes;
 use futures::stream::{self, StreamExt};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use std::path::PathBuf;
+use multitag::Tag;
+use multitag::data::{Album as TagAlbum, Picture, Timestamp};
+use reqwest::header::CONTENT_TYPE;
+use std::fs::OpenOptions;
+use std::io::{Read, Seek};
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use tidlers::client::{
     TidalClient,
-    models::track::{ManifestType, Track, TrackPlaybackInfoPostPaywallResponse},
+    models::{
+        album::AlbumResponse,
+        track::{ManifestType, Track, TrackPlaybackInfoPostPaywallResponse},
+    },
 };
+use tidlers::resources::uuid_to_url_with_size;
 
 /// Struct for handling all download operations
 pub struct Downloader {
@@ -30,6 +40,23 @@ struct RateLimitState {
     last_backoff_time: Arc<tokio::sync::Mutex<Option<std::time::Instant>>>,
     rate_limit_lock: Arc<tokio::sync::Mutex<()>>,
     multi_progress: Arc<tokio::sync::Mutex<Option<MultiProgress>>>,
+}
+
+#[derive(Clone)]
+struct AlbumTagContext {
+    title: String,
+    artist: String,
+    release_date: Option<String>,
+    cover_url: Option<String>,
+}
+
+struct TrackTagMetadata {
+    title: String,
+    artists: Vec<String>,
+    album_title: Option<String>,
+    album_artist: Option<String>,
+    release_date: Option<String>,
+    cover_url: Option<String>,
 }
 
 impl RateLimitState {
@@ -152,6 +179,55 @@ impl DownloadSummary {
     }
 }
 
+impl AlbumTagContext {
+    fn from_album_response(album: &AlbumResponse) -> Self {
+        Self {
+            title: album.title.clone(),
+            artist: album.artist.name.clone(),
+            release_date: Some(album.release_date.clone()),
+            cover_url: Some(uuid_to_url_with_size(&album.cover, 1280)),
+        }
+    }
+}
+
+impl TrackTagMetadata {
+    fn from_track(track: &Track, album_context: Option<AlbumTagContext>) -> Self {
+        let artists = if track.artists.is_empty() {
+            vec![track.artist.name.clone()]
+        } else {
+            track
+                .artists
+                .iter()
+                .map(|artist| artist.name.clone())
+                .collect()
+        };
+
+        let (album_title, album_artist, release_date, cover_url) = match album_context {
+            Some(context) => (
+                Some(context.title),
+                Some(context.artist),
+                context.release_date,
+                context.cover_url,
+            ),
+            None => (
+                Some(track.album.title.clone()),
+                Some(track.artist.name.clone()),
+                track.album.release_date.clone(),
+                track.album.get_cover_url(1280, 1280),
+            ),
+        };
+
+        Self {
+            title: track.title.clone(),
+            artists,
+            album_title,
+            album_artist,
+            release_date,
+            cover_url,
+        }
+    }
+}
+
 impl Downloader {
     pub fn new(output_dir: PathBuf, max_parallel: usize) -> Self {
         Self {
@@ -176,6 +252,17 @@ impl Downloader {
             .await
             .context("Failed to get playback info")?;
 
+        let album_context = match client.get_album(track.album.id.to_string()).await {
+            Ok(album) => Some(AlbumTagContext::from_album_response(&album)),
+            Err(err) => {
+                eprintln!(
+                    "warning: failed to fetch album metadata for {}: {}",
+                    track.album.title, err
+                );
+                None
+            }
+        };
+
         let pb = ProgressBar::new_spinner();
         pb.set_style(
             ProgressStyle::default_spinner()
@@ -185,7 +272,13 @@ impl Downloader {
         pb.set_message("Downloading...");
 
         let was_downloaded = self
-            .download_track_with_info_pb(&track, &playback_info, &self.output_dir, Some(&pb))
+            .download_track_with_info_pb(
+                &track,
+                &playback_info,
+                &self.output_dir,
+                album_context,
+                Some(&pb),
+            )
             .await?;
 
         if was_downloaded {
@@ -211,6 +304,8 @@ impl Downloader {
         println!("album: {}", album.title);
         println!("artist: {}", album.artist.name);
         println!("tracks: {}", album.number_of_tracks);
+
+        let album_tag_context = AlbumTagContext::from_album_response(&album);
 
         let album_dir = self.output_dir.join(sanitize_filename::sanitize(format!(
             "{} - {}",
@@ -277,6 +372,7 @@ impl Downloader {
                 tracks_to_download,
                 &album_dir,
                 false, // use original track numbers
+                Some(album_tag_context),
             )
             .await?;
         summary.skipped += already_downloaded;
@@ -373,6 +469,7 @@ impl Downloader {
                 tracks_to_download,
                 &playlist_dir,
                 true, // use playlist position as track number
+                None,
             )
             .await?;
         summary.skipped += already_downloaded;
@@ -386,6 +483,7 @@ impl Downloader {
         tracks: Vec<Track>,
         output_dir: &PathBuf,
         use_index_as_track_number: bool,
+        album_context: Option<AlbumTagContext>,
     ) -> Result<DownloadSummary> {
         println!(
             "\ndownloading {} tracks in parallel (max {})...\n",
@@ -408,6 +506,7 @@ impl Downloader {
                 let downloader = Arc::clone(&downloader);
                 let client = Arc::clone(&client);
                 let output_dir = output_dir.clone();
+                let album_context = album_context.clone();
                 let rate_limit_state = Arc::clone(&rate_limit_state);
                 let multi_progress = multi_progress.clone();
                 let mut attempt = 0;
@@ -455,6 +554,7 @@ impl Downloader {
                                     &playback_info,
                                     &output_dir,
                                     track_number,
+                                    album_context.clone(),
                                     Some(&pb),
                                 )
                                 .await;
@@ -521,6 +621,7 @@ impl Downloader {
         track: &Track,
         playback_info: &TrackPlaybackInfoPostPaywallResponse,
         output_dir: &PathBuf,
+        album_context: Option<AlbumTagContext>,
         pb: Option<&ProgressBar>,
     ) -> Result<bool> {
         self.download_track_with_info_numbered_pb(
@@ -528,6 +629,7 @@ impl Downloader {
             playback_info,
             output_dir,
             track.track_number,
+            album_context,
             pb,
         )
         .await
@@ -539,6 +641,7 @@ impl Downloader {
         playback_info: &TrackPlaybackInfoPostPaywallResponse,
         output_dir: &PathBuf,
         track_number: u32,
+        album_context: Option<AlbumTagContext>,
         pb: Option<&ProgressBar>,
     ) -> Result<bool> {
         let extension = self.get_file_extension(playback_info);
@@ -583,6 +686,11 @@ impl Downloader {
                 anyhow::bail!("No parsed manifest available");
             }
         }
+
+        let tag_metadata = TrackTagMetadata::from_track(track, album_context);
+        self.tag_downloaded_file(&output_path, &tag_metadata)
+            .await
+            .context("Failed to tag downloaded file")?;
 
         Ok(true) // file was downloaded
     }
@@ -801,16 +909,155 @@ impl Downloader {
         response.bytes().await.context("Failed to read bytes")
     }
 
+    async fn tag_downloaded_file(
+        &self,
+        output_path: &Path,
+        metadata: &TrackTagMetadata,
+    ) -> Result<()> {
+        let extension = output_path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .context("Failed to determine file extension for tagging")?;
+
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(output_path)
+            .with_context(|| format!("Failed to open {} for tagging", output_path.display()))?;
+
+        let tag_extension = self.sniff_tag_extension(&mut file, extension)?;
+        if tag_extension != extension {
+            eprintln!(
+                "warning: {} appears to be {} but has .{} extension",
+                output_path.display(),
+                tag_extension,
+                extension
+            );
+        }
+
+        let mut tag = Tag::read_from(&tag_extension, &file)
+            .with_context(|| format!("Failed to read tags from {}", output_path.display()))?;
+        file.rewind().context("Failed to rewind file for tagging")?;
+
+        tag.set_title(&metadata.title);
+
+        if metadata.artists.len() == 1 {
+            tag.set_artist(&metadata.artists[0]);
+        } else if !metadata.artists.is_empty() {
+            tag.set_artists(metadata.artists.clone());
+        }
+
+        let cover = match metadata.cover_url.as_deref() {
+            Some(url) => match self.fetch_cover_picture(url).await {
+                Ok(picture) => Some(picture),
+                Err(err) => {
+                    eprintln!(
+                        "warning: failed to download cover art for {}: {}",
+                        metadata.title, err
+                    );
+                    None
+                }
+            },
+            None => None,
+        };
+
+        let has_album_info =
+            metadata.album_title.is_some() || metadata.album_artist.is_some() || cover.is_some();
+        if has_album_info {
+            tag.set_album_info(TagAlbum {
+                title: metadata.album_title.clone(),
+                artist: metadata.album_artist.clone(),
+                cover,
+            })
+            .context("Failed to set album metadata")?;
+        }
+
+        if let Some(date) = metadata.release_date.as_deref() {
+            match Timestamp::from_str(date) {
+                Ok(timestamp) => tag.set_date(timestamp),
+                Err(err) => {
+                    eprintln!(
+                        "warning: invalid release date '{}' for {}: {}",
+                        date, metadata.title, err
+                    );
+                }
+            }
+        }
+
+        tag.write_to_file(&mut file)
+            .with_context(|| format!("Failed to write tags to {}", output_path.display()))?;
+
+        Ok(())
+    }
+
+    fn sniff_tag_extension(&self, file: &mut std::fs::File, declared: &str) -> Result<String> {
+        let mut header = [0u8; 12];
+        let read = file.read(&mut header).context("Failed to read file header")?;
+        file.rewind()
+            .context("Failed to rewind file after header read")?;
+
+        if read >= 8 && &header[4..8] == b"ftyp" {
+            return Ok("m4a".to_string());
+        }
+        if read >= 4 && &header[0..4] == b"fLaC" {
+            return Ok("flac".to_string());
+        }
+        if read >= 4 && &header[0..4] == b"OggS" {
+            return Ok("ogg".to_string());
+        }
+        if read >= 3 && &header[0..3] == b"ID3" {
+            return Ok("mp3".to_string());
+        }
+
+        Ok(declared.to_string())
+    }
+
+    async fn fetch_cover_picture(&self, cover_url: &str) -> Result<Picture> {
+        let response = self
+            .http_client
+            .get(cover_url)
+            .timeout(std::time::Duration::from_secs(30))
+            .send()
+            .await
+            .context("Failed to request cover art")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!("Cover art HTTP {}", response.status());
+        }
+
+        let mime_type = response
+            .headers()
+            .get(CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .map(|value| value.split(';').next().unwrap_or(value).to_string())
+            .unwrap_or_else(|| "image/jpeg".to_string());
+
+        let data = response
+            .bytes()
+            .await
+            .context("Failed to read cover art bytes")?
+            .to_vec();
+
+        Ok(Picture { data, mime_type })
+    }
+
     fn get_file_extension(&self, playback_info: &TrackPlaybackInfoPostPaywallResponse) -> &str {
         // Determine file extension based on manifest type and MIME type
+        if let Some(mime_type) = playback_info.get_mime_type() {
+            let mime_type = mime_type.to_ascii_lowercase();
+            if mime_type.contains("flac") && !mime_type.contains("mp4") {
+                return "flac";
+            }
+            if mime_type.contains("mp4") || mime_type.contains("m4a") {
+                return "m4a";
+            }
+        }
+
         match &playback_info.manifest_parsed {
-            Some(ManifestType::Dash(_)) => "flac", // HiRes uses fragmented MP4 (m4a)
+            Some(ManifestType::Dash(_)) => "m4a", // DASH uses fragmented MP4 container
             Some(ManifestType::Json(json)) => {
-                // Standard qualities - check MIME type
                 if json.mime_type.contains("flac") {
                     "flac"
-                } else if json.mime_type.contains("mp4") || json.mime_type.contains("m4a") {
-                    "m4a"
                 } else {
                     "m4a"
                 }
@@ -819,8 +1066,17 @@ impl Downloader {
         }
     }
 
-    fn track_exists_in_directory(&self, output_dir: &PathBuf, track_number: u32, title: &str) -> bool {
-        let base_name = format!("{:03} - {}", track_number, sanitize_filename::sanitize(title));
+    fn track_exists_in_directory(
+        &self,
+        output_dir: &PathBuf,
+        track_number: u32,
+        title: &str,
+    ) -> bool {
+        let base_name = format!(
+            "{:03} - {}",
+            track_number,
+            sanitize_filename::sanitize(title)
+        );
         let possible_extensions = ["m4a", "flac", "mp3"];
         possible_extensions
             .iter()
