@@ -47,7 +47,7 @@ struct AlbumTagContext {
     title: String,
     artist: String,
     release_date: Option<String>,
-    cover_url: Option<String>,
+    cover_uuid: Option<String>,
 }
 
 struct TrackTagMetadata {
@@ -185,7 +185,11 @@ impl AlbumTagContext {
             title: album.title.clone(),
             artist: album.artist.name.clone(),
             release_date: Some(album.release_date.clone()),
-            cover_url: Some(uuid_to_url_with_size(&album.cover, 1280)),
+            cover_uuid: if album.cover.trim().is_empty() {
+                None
+            } else {
+                Some(album.cover.clone())
+            },
         }
     }
 }
@@ -207,13 +211,27 @@ impl TrackTagMetadata {
                 Some(context.title),
                 Some(context.artist),
                 context.release_date,
-                context.cover_url,
+                context
+                    .cover_uuid
+                    .as_deref()
+                    .map(|uuid| uuid_to_url_with_size(uuid, 1280))
+                    .or_else(|| {
+                        track
+                            .album
+                            .cover
+                            .as_deref()
+                            .map(|uuid| uuid_to_url_with_size(uuid, 1280))
+                    }),
             ),
             None => (
                 Some(track.album.title.clone()),
                 Some(track.artist.name.clone()),
                 track.album.release_date.clone(),
-                track.album.get_cover_url(1280, 1280),
+                track
+                    .album
+                    .cover
+                    .as_deref()
+                    .map(|uuid| uuid_to_url_with_size(uuid, 1280)),
             ),
         };
 
@@ -553,7 +571,6 @@ impl Downloader {
                                     &track,
                                     &playback_info,
                                     &output_dir,
-                                    track_number,
                                     album_context.clone(),
                                     Some(&pb),
                                 )
@@ -628,7 +645,6 @@ impl Downloader {
             track,
             playback_info,
             output_dir,
-            track.track_number,
             album_context,
             pb,
         )
@@ -640,16 +656,11 @@ impl Downloader {
         track: &Track,
         playback_info: &TrackPlaybackInfoPostPaywallResponse,
         output_dir: &PathBuf,
-        track_number: u32,
         album_context: Option<AlbumTagContext>,
         pb: Option<&ProgressBar>,
     ) -> Result<bool> {
         let extension = self.get_file_extension(playback_info);
-        let base_name = format!(
-            "{:03} - {}",
-            track_number,
-            sanitize_filename::sanitize(&track.title)
-        );
+        let base_name = format!("{}", sanitize_filename::sanitize(&track.title));
 
         if self
             .find_existing_track_path(output_dir, &base_name)
@@ -915,14 +926,14 @@ impl Downloader {
             .with_context(|| format!("Failed to open {} for tagging", output_path.display()))?;
 
         let tag_extension = self.sniff_tag_extension(&mut file, extension)?;
-        if tag_extension != extension {
-            eprintln!(
-                "warning: {} appears to be {} but has .{} extension",
-                output_path.display(),
-                tag_extension,
-                extension
-            );
-        }
+        // if tag_extension != extension {
+        //     eprintln!(
+        //         "warning: {} appears to be {} but has .{} extension",
+        //         output_path.display(),
+        //         tag_extension,
+        //         extension
+        //     );
+        // }
 
         let mut tag = Tag::read_from(&tag_extension, &file)
             .with_context(|| format!("Failed to read tags from {}", output_path.display()))?;
@@ -981,7 +992,9 @@ impl Downloader {
 
     fn sniff_tag_extension(&self, file: &mut std::fs::File, declared: &str) -> Result<String> {
         let mut header = [0u8; 12];
-        let read = file.read(&mut header).context("Failed to read file header")?;
+        let read = file
+            .read(&mut header)
+            .context("Failed to read file header")?;
         file.rewind()
             .context("Failed to rewind file after header read")?;
 
