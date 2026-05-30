@@ -16,6 +16,7 @@ This project serves as a practical showcase of [Tidlers](https://codeberg.org/to
 - Progress indicators for downloads
 - Automatic file organization
 - Tags downloaded audio with TIDAL metadata (title, artist, album, cover art)
+- HiRes FLAC-in-MP4 streams are converted to FLAC containers (requires `ffmpeg`)
 
 ## Installation
 

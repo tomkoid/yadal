@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
-use tidlers::client::models::playback::AudioQuality;
+use tidlers::client::models::playback::{AudioQuality, PlaybackMode};
 
 mod args;
 mod auth;
@@ -54,6 +54,9 @@ async fn main() -> Result<()> {
 
     // set audio quality
     client.set_audio_quality(cli.quality.into());
+    if matches!(cli.quality, QualityArg::Lossless | QualityArg::HiRes) {
+        client.set_playback_mode(PlaybackMode::Offline);
+    }
     println!("audio quality: {:?}\n", cli.quality);
 
     // parse ID and determine media type

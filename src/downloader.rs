@@ -19,6 +19,7 @@ use tidlers::client::{
     },
 };
 use tidlers::resources::uuid_to_url_with_size;
+use tokio::process::Command;
 
 /// Struct for handling all download operations
 pub struct Downloader {
@@ -687,6 +688,10 @@ impl Downloader {
             }
         }
 
+        let output_path = self
+            .maybe_convert_flac_container(&output_path, playback_info)
+            .await?;
+
         let tag_metadata = TrackTagMetadata::from_track(track, album_context);
         self.tag_downloaded_file(&output_path, &tag_metadata)
             .await
@@ -990,6 +995,61 @@ impl Downloader {
         Ok(())
     }
 
+    async fn maybe_convert_flac_container(
+        &self,
+        output_path: &Path,
+        playback_info: &TrackPlaybackInfoPostPaywallResponse,
+    ) -> Result<PathBuf> {
+        let extension = output_path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .unwrap_or("m4a")
+            .to_ascii_lowercase();
+
+        let codecs = playback_info
+            .get_codecs()
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+
+        if extension != "m4a" || !codecs.contains("flac") {
+            return Ok(output_path.to_path_buf());
+        }
+
+        let flac_path = output_path.with_extension("flac");
+        self.transcode_to_flac(output_path, &flac_path).await?;
+        std::fs::remove_file(output_path)
+            .with_context(|| format!("Failed to remove {}", output_path.display()))?;
+        Ok(flac_path)
+    }
+
+    async fn transcode_to_flac(&self, input: &Path, output: &Path) -> Result<()> {
+        let status = Command::new("ffmpeg")
+            .arg("-hide_banner")
+            .arg("-loglevel")
+            .arg("error")
+            .arg("-y")
+            .arg("-i")
+            .arg(input)
+            .arg("-map_metadata")
+            .arg("-1")
+            .arg("-c:a")
+            .arg("flac")
+            .arg(output)
+            .status()
+            .await
+            .context("Failed to run ffmpeg for FLAC conversion")?;
+
+        if !status.success() {
+            anyhow::bail!(
+                "ffmpeg failed converting {} to {}",
+                input.display(),
+                output.display()
+            );
+        }
+
+        Ok(())
+    }
+
     fn sniff_tag_extension(&self, file: &mut std::fs::File, declared: &str) -> Result<String> {
         let mut header = [0u8; 12];
         let read = file
@@ -1054,34 +1114,23 @@ impl Downloader {
     }
 
     fn get_file_extension(&self, playback_info: &TrackPlaybackInfoPostPaywallResponse) -> &str {
-        // Determine file extension based on stream codec first, then MIME type
-        if let Some(codecs) = playback_info.get_codecs() {
-            if let Some(ext) = Self::extension_from_codecs(&codecs) {
-                return ext;
-            }
-        }
-
+        // Determine file extension based on container/MIME type
         if let Some(mime_type) = playback_info.get_mime_type() {
             if let Some(ext) = Self::extension_from_mime_type(&mime_type) {
                 return ext;
             }
         }
 
-        "m4a"
-    }
-
-    fn extension_from_codecs(codecs: &str) -> Option<&'static str> {
-        let codecs = codecs.to_ascii_lowercase();
-        if codecs.contains("flac") {
-            return Some("flac");
+        match &playback_info.manifest_parsed {
+            Some(ManifestType::Dash(_)) => "m4a", // DASH uses MP4 container
+            Some(ManifestType::Json(json)) => {
+                if let Some(ext) = Self::extension_from_mime_type(&json.mime_type) {
+                    return ext;
+                }
+                "m4a"
+            }
+            None => "m4a",
         }
-        if codecs.contains("mp4a") || codecs.contains("aac") || codecs.contains("alac") {
-            return Some("m4a");
-        }
-        if codecs.contains("mp3") {
-            return Some("mp3");
-        }
-        None
     }
 
     fn extension_from_mime_type(mime_type: &str) -> Option<&'static str> {
