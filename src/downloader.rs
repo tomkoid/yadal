@@ -521,7 +521,7 @@ impl Downloader {
             .await;
 
         let results = stream::iter(tracks.into_iter().enumerate())
-            .map(async |(index, track)| {
+            .map(async |(_, track)| {
                 let downloader = Arc::clone(&downloader);
                 let client = Arc::clone(&client);
                 let output_dir = output_dir.clone();
@@ -535,25 +535,13 @@ impl Downloader {
                     // Wait if rate limited BEFORE creating progress bar
                     rate_limit_state.wait_if_rate_limited().await;
 
-                    let track_number = if use_index_as_track_number {
-                        (index + 1) as u32
-                    } else {
-                        track.track_number
-                    };
-
-                    let format_str = if use_index_as_track_number {
-                        format!("{:03} - {}", track_number, track.title)
-                    } else {
-                        format!("{:02} - {}", track_number, track.title)
-                    };
-
                     let pb = multi_progress.add(ProgressBar::new_spinner());
                     pb.set_style(
                         ProgressStyle::default_spinner()
                             .template("{spinner:.green} [{elapsed_precise}] {msg}")
                             .unwrap(),
                     );
-                    pb.set_message(format!("{}", format_str));
+                    pb.set_message(format!("{}", track.title));
 
                     let track_id = track.id.to_string();
                     let result = {
@@ -568,7 +556,7 @@ impl Downloader {
                             rate_limit_state.on_success().await;
 
                             let result = downloader
-                                .download_track_with_info_numbered_pb(
+                                .download_track_with_info_pb(
                                     &track,
                                     &playback_info,
                                     &output_dir,
@@ -579,13 +567,20 @@ impl Downloader {
 
                             if result.is_ok() {
                                 match result.as_ref().unwrap() {
-                                    true => pb.finish_with_message(format!("✓ {}", format_str)),
-                                    false => pb.finish_with_message(format!("○ {}", format_str)),
+                                    // true => pb.finish_with_message(format!("✓ {}", track.title)),
+                                    true => pb.finish(),
+                                    false => pb.finish_with_message(format!("○ {}", track.title)),
                                 }
                             } else {
-                                pb.finish_with_message(format!(
-                                    "✗ {} (attempt {}/{})",
-                                    format_str,
+                                // pb.finish_with_message(format!(
+                                //     "✗ {} (attempt {}/{})",
+                                //     track.title,
+                                //     attempt + 1,
+                                //     max_attempts
+                                // ));
+                                pb.set_message(format!(
+                                    "✗ {} (attempt {}/{}, retrying...)",
+                                    track.title,
                                     attempt + 1,
                                     max_attempts
                                 ));
@@ -601,12 +596,12 @@ impl Downloader {
                                 }
                             }
 
-                            return (format_str, result);
+                            return (track.title, result);
                         }
                         Err(e) => {
                             pb.finish_with_message(format!(
-                                "✗ {} (attempt {}/{}, retrying later...)",
-                                format_str,
+                                "✗ {} (attempt {}/{}, couldn't get playback info, retrying later...)",
+                                track.title,
                                 attempt + 1,
                                 max_attempts
                             ));
@@ -622,7 +617,10 @@ impl Downloader {
                                 // Notify rate limit state of error
                                 rate_limit_state.on_error().await;
 
-                                return (format_str, Err(e).context("Failed to get playback info"));
+                                return (
+                                    track.title,
+                                    Err(e).context("Failed to get playback info"),
+                                );
                             }
                         }
                     }
@@ -634,25 +632,10 @@ impl Downloader {
 
         Ok(DownloadSummary::from_results(results))
     }
-    async fn download_track_with_info_pb(
-        &self,
-        track: &Track,
-        playback_info: &TrackPlaybackInfoPostPaywallResponse,
-        output_dir: &PathBuf,
-        album_context: Option<AlbumTagContext>,
-        pb: Option<&ProgressBar>,
-    ) -> Result<bool> {
-        self.download_track_with_info_numbered_pb(
-            track,
-            playback_info,
-            output_dir,
-            album_context,
-            pb,
-        )
-        .await
-    }
 
-    async fn download_track_with_info_numbered_pb(
+    /// Returns Ok(true) if the track was downloaded, Ok(false) if it was skipped due to existing
+    /// file, or Err on failure
+    async fn download_track_with_info_pb(
         &self,
         track: &Track,
         playback_info: &TrackPlaybackInfoPostPaywallResponse,
@@ -674,7 +657,8 @@ impl Downloader {
 
         match &playback_info.manifest_parsed {
             Some(ManifestType::Dash(dash)) => {
-                self.download_dash_track_pb(dash, &output_path, pb).await?;
+                self.download_dash_track_pb(dash, &output_path, &track.title, pb)
+                    .await?;
             }
             Some(ManifestType::Json(json_manifest)) => {
                 if let Some(url) = json_manifest.urls.first() {
@@ -704,6 +688,7 @@ impl Downloader {
         &self,
         dash: &tidlers::client::models::track::DashManifest,
         output_path: &PathBuf,
+        track_title: &str,
         pb: Option<&ProgressBar>,
     ) -> Result<()> {
         if let Some(pb) = pb {
@@ -711,7 +696,7 @@ impl Downloader {
             pb.set_position(0);
             pb.set_style(
                 ProgressStyle::default_bar()
-                    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} segments ({eta})")
+                    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} segments\t{msg} (eta {eta})")
                     .unwrap()
                     .progress_chars("#>-"),
             );
@@ -724,6 +709,11 @@ impl Downloader {
             }
             self.download_segment(init_url).await?
         } else {
+            if let Some(pb) = pb {
+                pb.set_message("No initialization segment found, skipping...");
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            }
+
             anyhow::bail!("No initialization segment found");
         };
 
@@ -754,7 +744,8 @@ impl Downloader {
                     pb.set_length(known_total);
                 }
                 pb.set_message(format!(
-                    "Downloading segments {}-{}...",
+                    "{}: Downloading segments {}-{}...",
+                    track_title,
                     segment_num,
                     segment_num + batch_urls.len() as u32 - 1
                 ));
@@ -773,6 +764,7 @@ impl Downloader {
                 .await;
 
             // Check results
+            const MAX_CONSECUTIVE_FAILURES: u32 = 1000;
             let mut consecutive_failures = 0;
             let mut batch_segments = Vec::new();
 
@@ -788,9 +780,17 @@ impl Downloader {
                     }
                     Err(_) => {
                         consecutive_failures += 1;
-                        if consecutive_failures >= 3 {
+                        if consecutive_failures >= MAX_CONSECUTIVE_FAILURES {
                             break;
                         }
+
+                        if let Some(pb) = pb {
+                            pb.set_message(format!(
+                                "Failed to download segment {segment_num}, consecutive failures: {consecutive_failures}/{MAX_CONSECUTIVE_FAILURES}",
+                            ));
+                        }
+
+                        tokio::time::sleep(std::time::Duration::from_millis(40)).await;
                     }
                 }
             }
@@ -804,7 +804,7 @@ impl Downloader {
             segment_num += batch_size;
 
             // Stop if we hit too many failures
-            if consecutive_failures >= 3 {
+            if consecutive_failures >= MAX_CONSECUTIVE_FAILURES {
                 break;
             }
         }
@@ -837,6 +837,10 @@ impl Downloader {
 
         // Write to file
         std::fs::write(output_path, combined_data).context("Failed to write file")?;
+
+        if let Some(pb) = pb {
+            pb.set_message("Saved successfully.");
+        }
 
         Ok(())
     }
@@ -1153,14 +1157,10 @@ impl Downloader {
     fn track_exists_in_directory(
         &self,
         output_dir: &PathBuf,
-        track_number: u32,
+        _track_number: u32,
         title: &str,
     ) -> bool {
-        let base_name = format!(
-            "{:03} - {}",
-            track_number,
-            sanitize_filename::sanitize(title)
-        );
+        let base_name = format!("{}", sanitize_filename::sanitize(title));
         let possible_extensions = ["m4a", "flac", "mp3"];
         possible_extensions
             .iter()
