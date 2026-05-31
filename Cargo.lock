@@ -803,6 +803,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "infer"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a588916bfdfd92e71cacef98a63d9b1f0d74d6599980d11894290e7ddefffcf7"
+
+[[package]]
 name = "ipnet"
 version = "2.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -907,22 +913,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mime"
-version = "0.3.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
-
-[[package]]
-name = "mime-sniffer"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b8b2a64cd735f1d5f17ff6701ced3cc3c54851f9448caf454cd9c923d812408"
-dependencies = [
- "mime",
- "url",
-]
-
-[[package]]
 name = "miniz_oxide"
 version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -962,15 +952,13 @@ checksum = "453e991b2efe96c288cbc2d03a19e353504294559ecb6c03067fff5bd824616d"
 [[package]]
 name = "multitag"
 version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a57f0ce03b19dbdcbd9d610af21967028cd4dd0ac85a15a7870f1c13ebcc83fc"
+source = "git+https://github.com/tomkoid/multitag#b5cc1adb1677bfde3c9515368282b0cba17fee02"
 dependencies = [
  "id3",
  "metaflac",
  "mp4ameta",
  "oggmeta",
  "opusmeta",
- "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -1030,14 +1018,13 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "opusmeta"
-version = "2.0.1"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "043235c2df82f5f3a57652048e641a2e9f531972ab27e5eb4d532576d56156f2"
+checksum = "a5075f0b7ed926ab3c1d79c025cc50018c079f79eb96bb12dc63fc15e93074a4"
 dependencies = [
  "base64",
- "mime-sniffer",
+ "infer",
  "ogg",
- "thiserror 1.0.69",
 ]
 
 [[package]]

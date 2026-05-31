@@ -53,6 +53,7 @@ struct AlbumTagContext {
 
 struct TrackTagMetadata {
     title: String,
+    track_number: u32,
     artists: Vec<String>,
     album_title: Option<String>,
     album_artist: Option<String>,
@@ -236,8 +237,11 @@ impl TrackTagMetadata {
             ),
         };
 
+        let track_number = track.track_number;
+
         Self {
             title: track.title.clone(),
+            track_number,
             artists,
             album_title,
             album_artist,
@@ -501,7 +505,7 @@ impl Downloader {
         client: &mut TidalClient,
         tracks: Vec<Track>,
         output_dir: &PathBuf,
-        use_index_as_track_number: bool,
+        _use_index_as_track_number: bool,
         album_context: Option<AlbumTagContext>,
     ) -> Result<DownloadSummary> {
         println!(
@@ -935,20 +939,38 @@ impl Downloader {
             .with_context(|| format!("Failed to open {} for tagging", output_path.display()))?;
 
         let tag_extension = self.sniff_tag_extension(&mut file, extension)?;
-        // if tag_extension != extension {
-        //     eprintln!(
-        //         "warning: {} appears to be {} but has .{} extension",
-        //         output_path.display(),
-        //         tag_extension,
-        //         extension
-        //     );
-        // }
+        if tag_extension != extension {
+            eprintln!(
+                "warning: {} appears to be {} but has .{} extension",
+                output_path.display(),
+                tag_extension,
+                extension
+            );
+        }
 
-        let mut tag = Tag::read_from(&tag_extension, &file)
-            .with_context(|| format!("Failed to read tags from {}", output_path.display()))?;
-        file.rewind().context("Failed to rewind file for tagging")?;
+        let tag = Tag::read_from(&tag_extension, &file);
+
+        let mut tag = match tag {
+            Ok(tag) => tag,
+            Err(_) => {
+                return Err(anyhow::anyhow!(
+                    "Unsupported file format for tagging or error reading file: {} (detected as {})",
+                    output_path.display(),
+                    tag_extension
+                ));
+            }
+        };
 
         tag.set_title(&metadata.title);
+        match tag.set_track_number(metadata.track_number) {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!(
+                    "warning: failed to set track number for {}: {}",
+                    metadata.title, e
+                );
+            }
+        }
 
         if metadata.artists.len() == 1 {
             tag.set_artist(&metadata.artists[0]);
@@ -973,12 +995,17 @@ impl Downloader {
         let has_album_info =
             metadata.album_title.is_some() || metadata.album_artist.is_some() || cover.is_some();
         if has_album_info {
-            tag.set_album_info(TagAlbum {
+            if let Err(e) = tag.set_album_info(TagAlbum {
                 title: metadata.album_title.clone(),
                 artist: metadata.album_artist.clone(),
                 cover,
-            })
-            .context("Failed to set album metadata")?;
+            }) {
+                return Err(anyhow::anyhow!(
+                    "Failed to set album info for {}: {}",
+                    metadata.title,
+                    e
+                ));
+            }
         }
 
         if let Some(date) = metadata.release_date.as_deref() {
@@ -993,8 +1020,16 @@ impl Downloader {
             }
         }
 
-        tag.write_to_file(&mut file)
-            .with_context(|| format!("Failed to write tags to {}", output_path.display()))?;
+        file.rewind()
+            .context("Failed to rewind file before writing tags")?;
+
+        if let Err(e) = tag.write_to_file(&mut file) {
+            return Err(anyhow::anyhow!(
+                "Failed to write tags to {}: {}",
+                output_path.display(),
+                e
+            ));
+        }
 
         Ok(())
     }
