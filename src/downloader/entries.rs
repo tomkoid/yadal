@@ -13,19 +13,23 @@ impl Downloader {
 
         println!("track: {}", track.title);
         println!("artist: {}", track.artist.name);
-        println!("album: {}", track.album.title);
+        println!("album: {}", track.album.as_ref().unwrap().title);
 
         let playback_info = client
             .get_track_postpaywall_playback_info(track_id.to_string())
             .await
             .context("Failed to get playback info")?;
 
-        let album_context = match client.get_album(track.album.id.to_string()).await {
+        let album_context = match client
+            .get_album(track.album.as_ref().unwrap().id.to_string())
+            .await
+        {
             Ok(album) => Some(AlbumTagContext::from_album_response(&album)),
             Err(err) => {
                 eprintln!(
                     "warning: failed to fetch album metadata for {}: {}",
-                    track.album.title, err
+                    track.album.as_ref().unwrap().title,
+                    err
                 );
                 None
             }

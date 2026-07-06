@@ -60,17 +60,21 @@ impl TrackTagMetadata {
                     .or_else(|| {
                         track
                             .album
+                            .as_ref()
+                            .unwrap()
                             .cover
                             .as_deref()
                             .map(|uuid| uuid_to_url_with_size(uuid, 1280))
                     }),
             ),
             None => (
-                Some(track.album.title.clone()),
+                Some(track.album.as_ref().unwrap().title.clone()),
                 Some(track.artist.name.clone()),
-                track.album.release_date.clone(),
+                track.album.as_ref().unwrap().release_date.clone(),
                 track
                     .album
+                    .as_ref()
+                    .unwrap()
                     .cover
                     .as_deref()
                     .map(|uuid| uuid_to_url_with_size(uuid, 1280)),
