@@ -62,7 +62,7 @@ impl Downloader {
                     let result = {
                         let client_guard = client.lock().await;
                         client_guard
-                            .get_track_postpaywall_playback_info(track_id)
+                            .get_track_postpaywall_playback_info(track_id, None)
                             .await
                     };
 

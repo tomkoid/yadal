@@ -16,7 +16,7 @@ impl Downloader {
         println!("album: {}", track.album.as_ref().unwrap().title);
 
         let playback_info = client
-            .get_track_postpaywall_playback_info(track_id.to_string())
+            .get_track_postpaywall_playback_info(track_id.to_string(), None)
             .await
             .context("Failed to get playback info")?;
 

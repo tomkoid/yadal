@@ -1,7 +1,10 @@
 use anyhow::{Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::PathBuf;
-use tidlers::client::models::track::{ManifestType, Track, TrackPlaybackInfoPostPaywallResponse};
+use tidlers::client::models::track::{
+    Track,
+    playback::{ManifestType, TrackPlaybackInfoResponse},
+};
 
 use crate::downloader::{
     Downloader,
@@ -17,7 +20,7 @@ impl Downloader {
     pub async fn download_track_with_info_pb(
         &self,
         track: &Track,
-        playback_info: &TrackPlaybackInfoPostPaywallResponse,
+        playback_info: &TrackPlaybackInfoResponse,
         output_dir: &PathBuf,
         album_context: Option<AlbumTagContext>,
         pb: Option<&ProgressBar>,

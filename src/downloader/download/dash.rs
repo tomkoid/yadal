@@ -5,11 +5,12 @@ use anyhow::{Context, Result};
 use bytes::Bytes;
 use futures::{StreamExt, stream};
 use indicatif::{ProgressBar, ProgressStyle};
+use tidlers::client::models::track::playback::DashManifest;
 
 impl Downloader {
     pub async fn download_dash_track_pb(
         &self,
-        dash: &tidlers::client::models::track::DashManifest,
+        dash: &DashManifest,
         output_path: &PathBuf,
         track_title: &str,
         pb: Option<&ProgressBar>,

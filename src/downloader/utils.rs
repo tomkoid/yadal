@@ -8,14 +8,14 @@ use crate::downloader::Downloader;
 use anyhow::{Context, Result};
 use multitag::data::Picture;
 use reqwest::header::CONTENT_TYPE;
-use tidlers::client::models::track::{ManifestType, TrackPlaybackInfoPostPaywallResponse};
+use tidlers::client::models::track::playback::{ManifestType, TrackPlaybackInfoResponse};
 use tokio::process::Command;
 
 impl Downloader {
     pub async fn maybe_convert_flac_container(
         &self,
         output_path: &Path,
-        playback_info: &TrackPlaybackInfoPostPaywallResponse,
+        playback_info: &TrackPlaybackInfoResponse,
     ) -> Result<PathBuf> {
         let extension = output_path
             .extension()
@@ -130,7 +130,7 @@ impl Downloader {
         Ok(Picture { data, mime_type })
     }
 
-    pub fn get_file_extension(&self, playback_info: &TrackPlaybackInfoPostPaywallResponse) -> &str {
+    pub fn get_file_extension(&self, playback_info: &TrackPlaybackInfoResponse) -> &str {
         // Determine file extension based on container/MIME type
         if let Some(mime_type) = playback_info.get_mime_type() {
             if let Some(ext) = Self::extension_from_mime_type(&mime_type) {
