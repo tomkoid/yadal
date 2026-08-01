@@ -2,7 +2,10 @@ use anyhow::{Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use tidlers::TidalClient;
 
-use crate::downloader::{Downloader, context::AlbumTagContext, ui::summary::DownloadSummary};
+use crate::{
+    downloader::{Downloader, context::AlbumTagContext, ui::summary::DownloadSummary},
+    types::MediaType,
+};
 
 impl Downloader {
     pub async fn download_track(&self, client: &mut TidalClient, track_id: &str) -> Result<()> {
@@ -50,6 +53,7 @@ impl Downloader {
                 &self.output_dir,
                 album_context,
                 Some(&pb),
+                MediaType::Track,
             )
             .await?;
 
@@ -145,6 +149,7 @@ impl Downloader {
                 &album_dir,
                 false, // use original track numbers
                 Some(album_tag_context),
+                MediaType::Album,
             )
             .await?;
         summary.skipped += already_downloaded;
@@ -242,6 +247,7 @@ impl Downloader {
                 &playlist_dir,
                 true, // use playlist position as track number
                 None,
+                MediaType::Playlist,
             )
             .await?;
         summary.skipped += already_downloaded;

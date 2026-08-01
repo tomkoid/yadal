@@ -5,9 +5,12 @@ use futures::{StreamExt, stream};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use tidlers::{TidalClient, client::models::track::Track};
 
-use crate::downloader::{
-    Downloader, context::AlbumTagContext, rate_limiter::RateLimitState,
-    ui::summary::DownloadSummary,
+use crate::{
+    downloader::{
+        Downloader, context::AlbumTagContext, rate_limiter::RateLimitState,
+        ui::summary::DownloadSummary,
+    },
+    types::MediaType,
 };
 
 impl Downloader {
@@ -18,6 +21,7 @@ impl Downloader {
         output_dir: &PathBuf,
         _use_index_as_track_number: bool,
         album_context: Option<AlbumTagContext>,
+        media_type: MediaType,
     ) -> Result<DownloadSummary> {
         println!(
             "\ndownloading {} tracks in parallel (max {})...\n",
@@ -77,6 +81,7 @@ impl Downloader {
                                     &output_dir,
                                     album_context.clone(),
                                     Some(&pb),
+                                    media_type
                                 )
                                 .await;
 

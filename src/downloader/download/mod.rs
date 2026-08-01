@@ -6,9 +6,12 @@ use tidlers::client::models::track::{
     playback::{ManifestType, TrackPlaybackInfoResponse},
 };
 
-use crate::downloader::{
-    Downloader,
-    context::{AlbumTagContext, TrackTagMetadata},
+use crate::{
+    downloader::{
+        Downloader,
+        context::{AlbumTagContext, TrackTagMetadata},
+    },
+    types::MediaType,
 };
 
 pub mod dash;
@@ -24,6 +27,7 @@ impl Downloader {
         output_dir: &PathBuf,
         album_context: Option<AlbumTagContext>,
         pb: Option<&ProgressBar>,
+        media_type: MediaType,
     ) -> Result<bool> {
         let extension = self.get_file_extension(playback_info);
         let base_name = format!("{}", sanitize_filename::sanitize(&track.title));
@@ -36,10 +40,15 @@ impl Downloader {
         }
 
         let tag_metadata = TrackTagMetadata::from_track(track, album_context);
-        let output_path = output_dir.join(format!(
-            "{:02} {}.{}",
-            tag_metadata.track_number, base_name, extension
-        ));
+
+        let output_path = if media_type != MediaType::Track {
+            output_dir.join(format!(
+                "{:02} {}.{}",
+                tag_metadata.track_number, base_name, extension
+            ))
+        } else {
+            output_dir.join(format!("{}.{}", base_name, extension))
+        };
 
         match &playback_info.manifest_parsed {
             Some(ManifestType::Dash(dash)) => {
