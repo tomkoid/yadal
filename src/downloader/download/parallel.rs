@@ -50,7 +50,7 @@ impl Downloader {
                 let rate_limit_state = Arc::clone(&rate_limit_state);
                 let multi_progress = multi_progress.clone();
                 let mut attempt = 0;
-                let max_attempts = 10;
+                let max_attempts = 3;
 
                 loop {
                     // Wait if rate limited BEFORE creating progress bar
@@ -98,12 +98,6 @@ impl Downloader {
                                     false => pb.finish_with_message(format!("○ {}", track.title)),
                                 }
                             } else {
-                                // pb.finish_with_message(format!(
-                                //     "✗ {} (attempt {}/{})",
-                                //     track.title,
-                                //     attempt + 1,
-                                //     max_attempts
-                                // ));
                                 pb.set_message(format!(
                                     "✗ {} (attempt {}/{}, retrying...)",
                                     track.title,
@@ -115,6 +109,8 @@ impl Downloader {
                                     // notify rate limit state of error
                                     rate_limit_state.on_error().await;
 
+                                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
                                     continue;
                                 } else {
                                     // notify rate limit state of error
@@ -122,7 +118,7 @@ impl Downloader {
 
                                     return (
                                         track.title,
-                                        Err(TidalError::Other("Unknown error/Timeout".to_string())).context("Failed to download track"),
+                                        Err(TidalError::Other("Unknown error/Timeout".to_string())).context("Unknown error/timeout after multiple attempts"),
                                     );
                                 }
                             }

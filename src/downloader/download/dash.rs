@@ -29,12 +29,12 @@ impl Downloader {
         // Step 1: Download initialization segment (required for DASH)
         let init_data = if let Some(init_url) = dash.get_init_url() {
             if let Some(pb) = pb {
-                pb.set_message("Downloading init segment...");
+                pb.set_message(format!("{track_title}: Downloading init segment..."));
             }
             self.download_segment(init_url).await?
         } else {
             if let Some(pb) = pb {
-                pb.set_message("No initialization segment found, skipping...");
+                pb.set_message("{track_title}: No initialization segment found, skipping...");
                 tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             }
 
@@ -68,8 +68,7 @@ impl Downloader {
                     pb.set_length(known_total);
                 }
                 pb.set_message(format!(
-                    "{}: Downloading segments {}-{}...",
-                    track_title,
+                    "{track_title}: Downloading segments {}-{}...",
                     segment_num,
                     segment_num + batch_urls.len() as u32 - 1
                 ));
@@ -99,18 +98,26 @@ impl Downloader {
                         consecutive_failures = 0;
                         if let Some(pb) = pb {
                             pb.inc(1);
-                            pb.set_message(format!("Downloaded segment {}", num));
+                            pb.set_message(format!("{track_title}: Downloaded segment {}", num));
                         }
                     }
                     Err(_) => {
                         consecutive_failures += 1;
                         if consecutive_failures >= MAX_CONSECUTIVE_FAILURES {
-                            break;
+                            if let Some(pb) = pb {
+                                pb.set_message(format!(
+                                    "{track_title}: Downloading FAILED on segment {segment_num}, failures: {consecutive_failures}/{MAX_CONSECUTIVE_FAILURES}",
+                                ));
+                            }
+                            return Err(anyhow::anyhow!(
+                                "Failed to download segment {segment_num} after {consecutive_failures} consecutive failures"
+                            ));
+                            // break;
                         }
 
                         if let Some(pb) = pb {
                             pb.set_message(format!(
-                                "Failed to download segment {segment_num}, consecutive failures: {consecutive_failures}/{MAX_CONSECUTIVE_FAILURES}",
+                                "{track_title}: Downloading segment {segment_num}, failures: {consecutive_failures}/{MAX_CONSECUTIVE_FAILURES}",
                             ));
                         }
 
@@ -137,7 +144,7 @@ impl Downloader {
             let downloaded_segments = pb.position();
             pb.set_length(downloaded_segments.max(1));
             pb.set_position(downloaded_segments);
-            pb.set_message("Combining segments...");
+            pb.set_message(format!("{track_title}: Combining segments..."));
         }
 
         // Step 3: Sort and combine
@@ -156,14 +163,14 @@ impl Downloader {
         }
 
         if let Some(pb) = pb {
-            pb.set_message("Writing to disk...");
+            pb.set_message(format!("{track_title}: Writing to disk..."));
         }
 
         // Write to file
         std::fs::write(output_path, combined_data).context("Failed to write file")?;
 
         if let Some(pb) = pb {
-            pb.set_message("Saved successfully.");
+            pb.set_message(format!("{track_title}: Saved successfully."));
         }
 
         Ok(())
