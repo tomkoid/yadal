@@ -35,7 +35,11 @@ impl Downloader {
             return Ok(false); // file was skipped
         }
 
-        let output_path = output_dir.join(format!("{}.{}", base_name, extension));
+        let tag_metadata = TrackTagMetadata::from_track(track, album_context);
+        let output_path = output_dir.join(format!(
+            "{:02} {}.{}",
+            tag_metadata.track_number, base_name, extension
+        ));
 
         match &playback_info.manifest_parsed {
             Some(ManifestType::Dash(dash)) => {
@@ -58,7 +62,6 @@ impl Downloader {
             .maybe_convert_flac_container(&output_path, playback_info)
             .await?;
 
-        let tag_metadata = TrackTagMetadata::from_track(track, album_context);
         self.tag_downloaded_file(&output_path, &tag_metadata)
             .await
             .context("Failed to tag downloaded file")?;
