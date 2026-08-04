@@ -6,11 +6,12 @@ use tidlers::{auth::init::TidalAuth, client::TidalClient};
 pub async fn load_or_authenticate(session_file: &Path, use_oauth2: bool) -> Result<TidalClient> {
     // try to load existing session
     if session_file.exists() {
-        println!("loading session from {}...", session_file.display());
         match std::fs::read_to_string(session_file) {
             Ok(session_data) => {
                 match TidalClient::from_json(&session_data) {
                     Ok(mut client) => {
+                        println!("loading session from {}...", session_file.display());
+
                         // try to refresh token
                         match client.refresh_access_token(false).await {
                             Ok(refreshed) => {

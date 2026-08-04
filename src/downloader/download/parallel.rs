@@ -3,7 +3,10 @@ use std::{path::PathBuf, sync::Arc};
 use anyhow::{Context, Result};
 use futures::{StreamExt, stream};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use tidlers::{TidalClient, TidalError, client::models::track::Track};
+use tidlers::{
+    TidalError,
+    client::models::track::{Track, config::TrackPlaybackInfoConfig},
+};
 
 use crate::{
     downloader::{
@@ -16,7 +19,6 @@ use crate::{
 impl Downloader {
     pub async fn download_tracks_parallel(
         &self,
-        client: &mut TidalClient,
         tracks: Vec<Track>,
         output_dir: &PathBuf,
         _use_index_as_track_number: bool,
@@ -24,13 +26,13 @@ impl Downloader {
         media_type: MediaType,
     ) -> Result<DownloadSummary> {
         println!(
-            "\ndownloading {} tracks in parallel (max {})...\n",
+            "\ndownloading {} tracks in parallel (max {})...",
             tracks.len(),
             self.max_parallel
         );
 
         let downloader = Arc::new(self);
-        let client = Arc::new(tokio::sync::Mutex::new(client));
+        let client = Arc::new(tokio::sync::Mutex::new(self.tidal_client.clone()));
         let rate_limit_state = RateLimitState::new();
 
         // Create multi-progress bar
@@ -66,7 +68,10 @@ impl Downloader {
                     let result = {
                         let client_guard = client.lock().await;
                         client_guard
-                            .get_track_postpaywall_playback_info(track_id, None)
+                            .get_track_postpaywall_playback_info(track_id, Some(TrackPlaybackInfoConfig {
+                                audio_quality: Some(self.audio_quality.clone()),
+                                ..Default::default()
+                            }))
                             .await
                     };
 

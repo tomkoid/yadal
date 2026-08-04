@@ -36,8 +36,12 @@ impl DownloadSummary {
         if !self.failed.is_empty() {
             println!("  failed: {}", self.failed.len());
             for track in &self.failed {
-                println!("    - {} ({})", track.0, track.1.to_string());
+                println!("{}- {} ({})", " ".repeat(4), track.0, track.1.to_string());
             }
         }
+    }
+
+    pub fn get_exit_code(&self) -> i32 {
+        if !self.failed.is_empty() { 1 } else { 0 }
     }
 }

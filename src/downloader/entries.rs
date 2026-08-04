@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
-use tidlers::TidalClient;
+use tidlers::client::models::track::config::TrackPlaybackInfoConfig;
 
 use crate::{
     downloader::{Downloader, context::AlbumTagContext, ui::summary::DownloadSummary},
@@ -8,8 +8,9 @@ use crate::{
 };
 
 impl Downloader {
-    pub async fn download_track(&self, client: &mut TidalClient, track_id: &str) -> Result<()> {
-        let track = client
+    pub async fn download_track(&self, track_id: &str) -> Result<DownloadSummary> {
+        let track = self
+            .tidal_client
             .get_track(track_id.to_string())
             .await
             .context("Failed to get track info")?;
@@ -18,12 +19,20 @@ impl Downloader {
         println!("artist: {}", track.artist.name);
         println!("album: {}", track.album.as_ref().unwrap().title);
 
-        let playback_info = client
-            .get_track_postpaywall_playback_info(track_id.to_string(), None)
+        let playback_info = self
+            .tidal_client
+            .get_track_postpaywall_playback_info(
+                track_id.to_string(),
+                Some(TrackPlaybackInfoConfig {
+                    audio_quality: Some(self.audio_quality.clone()),
+                    ..Default::default()
+                }),
+            )
             .await
             .context("Failed to get playback info")?;
 
-        let album_context = match client
+        let album_context = match self
+            .tidal_client
             .get_album(track.album.as_ref().unwrap().id.to_string())
             .await
         {
@@ -57,148 +66,101 @@ impl Downloader {
             )
             .await?;
 
+        let mut summary = DownloadSummary::new();
         if was_downloaded {
+            summary.downloaded += 1;
             pb.finish_with_message("✓ Downloaded");
         } else {
+            summary.skipped += 1;
             pb.finish_with_message("○ Already exists");
         }
 
-        Ok(())
+        Ok(summary)
     }
 
-    pub async fn download_album(
+    pub async fn download_media(
         &self,
-        client: &mut TidalClient,
-        album_id: &str,
+        id: &str,
+        media_type: MediaType,
         force_recheck: bool,
-    ) -> Result<()> {
-        let album = client
-            .get_album(album_id.to_string())
-            .await
-            .context("Failed to get album info")?;
+    ) -> Result<DownloadSummary> {
+        // fetch metadata
+        let (dir_name, album_tag_context) = match media_type {
+            MediaType::Album => {
+                let album = self
+                    .tidal_client
+                    .get_album(id.to_string())
+                    .await
+                    .context("Failed to get album info")?;
 
-        println!("album: {}", album.title);
-        println!("artist: {}", album.artist.name);
-        println!("tracks: {}", album.number_of_tracks);
+                println!("album: {}", album.title);
+                println!("artist: {}", album.artist.name);
+                println!("tracks: {}", album.number_of_tracks);
 
-        let album_tag_context = AlbumTagContext::from_album_response(&album);
-
-        let album_dir = self.output_dir.join(sanitize_filename::sanitize(format!(
-            "{} - {}",
-            album.artist.name, album.title
-        )));
-        std::fs::create_dir_all(&album_dir).context("Failed to create album directory")?;
-
-        // fetch all tracks from the album (handles pagination)
-        let mut all_tracks = Vec::new();
-        let mut offset = 0;
-        let limit = 100;
-
-        loop {
-            let items = client
-                .get_album_items(album_id.to_string(), Some(limit), Some(offset))
-                .await
-                .context("Failed to get album tracks")?;
-
-            for item in items.items {
-                all_tracks.push(item.item);
+                let tag_ctx = AlbumTagContext::from_album_response(&album);
+                let dir_name = format!("{} - {}", album.artist.name, album.title);
+                (dir_name, Some(tag_ctx))
             }
+            MediaType::Playlist => {
+                let playlist = self
+                    .tidal_client
+                    .get_playlist(id.to_string())
+                    .await
+                    .context("Failed to get playlist info")?;
 
-            if all_tracks.len() >= items.total_number_of_items as usize {
-                break;
-            }
-            offset += limit;
-        }
+                println!("playlist: {}", playlist.title);
+                println!("creator: {}", playlist.creator.id);
+                println!("tracks: {}", playlist.number_of_tracks);
 
-        let mut already_downloaded = 0usize;
-        let tracks_to_download = if force_recheck {
-            all_tracks
-        } else {
-            let mut filtered = Vec::new();
-            for track in all_tracks {
-                if self.track_exists_in_directory(&album_dir, track.track_number, &track.title) {
-                    already_downloaded += 1;
-                } else {
-                    filtered.push(track);
-                }
+                let dir_name = format!("{}-playlist", playlist.title);
+                (dir_name, None)
             }
-            filtered
+            _ => {
+                panic!("download_media should only be called for albums or playlists");
+            }
         };
 
-        if already_downloaded > 0 {
-            println!(
-                "skipping {} tracks already in directory (use --force-recheck to revalidate)\n",
-                already_downloaded
-            );
-        }
+        // create the target directory
+        let target_dir = self.output_dir.join(sanitize_filename::sanitize(dir_name));
+        std::fs::create_dir_all(&target_dir).context("Failed to create media directory")?;
 
-        if tracks_to_download.is_empty() {
-            let summary = DownloadSummary {
-                downloaded: 0,
-                skipped: already_downloaded,
-                failed: Vec::new(),
-            };
-            summary.print();
-            return Ok(());
-        }
-
-        let mut summary = self
-            .download_tracks_parallel(
-                client,
-                tracks_to_download,
-                &album_dir,
-                false, // use original track numbers
-                Some(album_tag_context),
-                MediaType::Album,
-            )
-            .await?;
-        summary.skipped += already_downloaded;
-        summary.print();
-        Ok(())
-    }
-    pub async fn download_playlist(
-        &self,
-        client: &mut TidalClient,
-        playlist_id: &str,
-        force_recheck: bool,
-    ) -> Result<()> {
-        let playlist = client
-            .get_playlist(playlist_id.to_string())
-            .await
-            .context("Failed to get playlist info")?;
-
-        println!("playlist: {}", playlist.title);
-        println!("creator: {}", playlist.creator.id);
-        println!("tracks: {}", playlist.number_of_tracks);
-
-        let playlist_dir = self.output_dir.join(sanitize_filename::sanitize(format!(
-            "{}-playlist",
-            playlist.title
-        )));
-        std::fs::create_dir_all(&playlist_dir).context("Failed to create playlist directory")?;
-
-        // fetch all tracks from the playlist (handles pagination)
+        // fetch all tracks (handles pagination)
         let mut all_tracks = Vec::new();
         let mut offset = 0;
         let limit = 100;
 
         loop {
-            let items = client
-                .get_playlist_items(
-                    playlist_id.to_string(),
-                    Some(limit),
-                    Some(offset),
-                    None,
-                    None,
-                )
-                .await
-                .context("Failed to get playlist tracks")?;
+            let total_items: usize;
 
-            for item in items.items {
-                all_tracks.push(item.item);
+            match media_type {
+                MediaType::Album => {
+                    let items = self
+                        .tidal_client
+                        .get_album_items(id.to_string(), Some(limit), Some(offset))
+                        .await
+                        .context("Failed to get album tracks")?;
+
+                    for item in items.items {
+                        all_tracks.push(item.item);
+                    }
+                    total_items = items.total_number_of_items as usize;
+                }
+                MediaType::Playlist => {
+                    let items = self
+                        .tidal_client
+                        .get_playlist_items(id.to_string(), Some(limit), Some(offset), None, None)
+                        .await
+                        .context("Failed to get playlist tracks")?;
+
+                    for item in items.items {
+                        all_tracks.push(item.item);
+                    }
+                    total_items = items.total_number_of_items as usize;
+                }
+                _ => unreachable!(),
             }
 
-            if all_tracks.len() >= items.total_number_of_items as usize {
+            if all_tracks.len() >= total_items {
                 break;
             }
             offset += limit;
@@ -212,8 +174,14 @@ impl Downloader {
                 .into_iter()
                 .enumerate()
                 .filter_map(|(index, track)| {
-                    let track_number = (index + 1) as u32;
-                    if self.track_exists_in_directory(&playlist_dir, track_number, &track.title) {
+                    // use album original track numbers and for playlists use their positional index
+                    let track_number = match media_type {
+                        MediaType::Album => track.track_number,
+                        MediaType::Playlist => (index + 1) as u32,
+                        _ => unreachable!(),
+                    };
+
+                    if self.track_exists_in_directory(&target_dir, track_number, &track.title) {
                         already_downloaded += 1;
                         None
                     } else {
@@ -236,22 +204,28 @@ impl Downloader {
                 skipped: already_downloaded,
                 failed: Vec::new(),
             };
-            summary.print();
-            return Ok(());
+
+            if matches!(media_type, MediaType::Album) {
+                summary.print();
+            }
+
+            return Ok(summary);
         }
+
+        let use_playlist_position = matches!(media_type, MediaType::Playlist);
 
         let mut summary = self
             .download_tracks_parallel(
-                client,
                 tracks_to_download,
-                &playlist_dir,
-                true, // use playlist position as track number
-                None,
-                MediaType::Playlist,
+                &target_dir,
+                use_playlist_position,
+                album_tag_context,
+                media_type,
             )
             .await?;
+
         summary.skipped += already_downloaded;
-        summary.print();
-        Ok(())
+
+        Ok(summary)
     }
 }

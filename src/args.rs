@@ -1,9 +1,8 @@
 use std::path::PathBuf;
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use directories::ProjectDirs;
-
-use crate::{MediaTypeArg, QualityArg};
+use tidlers::client::models::playback::AudioQuality;
 
 fn default_session_file() -> PathBuf {
     ProjectDirs::from("", "", "yadal")
@@ -56,4 +55,31 @@ pub struct Cli {
     /// Session file path
     #[arg(long, value_parser, default_value_os_t = default_session_file())]
     pub session_file: PathBuf,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, ValueEnum, Debug)]
+pub enum QualityArg {
+    Low,
+    High,
+    Lossless,
+    HiRes,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, ValueEnum)]
+pub enum MediaTypeArg {
+    Auto,
+    Track,
+    Album,
+    Playlist,
+}
+
+impl From<QualityArg> for AudioQuality {
+    fn from(val: QualityArg) -> Self {
+        match val {
+            QualityArg::Low => AudioQuality::Low,
+            QualityArg::High => AudioQuality::High,
+            QualityArg::Lossless => AudioQuality::Lossless,
+            QualityArg::HiRes => AudioQuality::HiRes,
+        }
+    }
 }
