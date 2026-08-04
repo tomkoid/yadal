@@ -3,7 +3,7 @@ use std::{path::PathBuf, sync::Arc};
 use anyhow::{Context, Result};
 use futures::{StreamExt, stream};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use tidlers::{TidalClient, client::models::track::Track};
+use tidlers::{TidalClient, TidalError, client::models::track::Track};
 
 use crate::{
     downloader::{
@@ -104,7 +104,7 @@ impl Downloader {
                                     attempt + 1,
                                     max_attempts
                                 ));
-                                if attempt < max_attempts {
+                                if attempt+1 < max_attempts {
                                     attempt += 1;
                                     // notify rate limit state of error
                                     rate_limit_state.on_error().await;
@@ -113,6 +113,11 @@ impl Downloader {
                                 } else {
                                     // notify rate limit state of error
                                     rate_limit_state.on_error().await;
+
+                                    return (
+                                        track.title,
+                                        Err(TidalError::Other("Unknown error/Timeout".to_string())).context("Failed to download track"),
+                                    );
                                 }
                             }
 
@@ -126,7 +131,7 @@ impl Downloader {
                                 max_attempts
                             ));
 
-                            if attempt < max_attempts {
+                            if attempt+1 < max_attempts {
                                 attempt += 1;
 
                                 // Notify rate limit state of error
