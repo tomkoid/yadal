@@ -40,6 +40,13 @@ async fn main() -> Result<()> {
         user_info.user_id, user_info.username
     );
 
+    if cli.id.contains("upload") {
+        eprintln!(
+            "error: uploads are not supported yet. please provide a valid track, album, or playlist ID."
+        );
+        exit(1);
+    }
+
     // parse ID and determine media type
     let (media_id, detected_type) = parse_tidal_input(&cli.id);
 

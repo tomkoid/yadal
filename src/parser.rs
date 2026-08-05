@@ -21,8 +21,10 @@ pub fn parse_tidal_input(input: &str) -> (String, MediaType) {
     // Not a URL or failed to parse - treat as raw ID
     // Try to detect type from ID format
     if input.contains('-') {
-        // UUIDs are typically playlists
-        (input.to_string(), MediaType::Playlist)
+        match input.contains("upload/") {
+            true => (input.to_string(), MediaType::Track), // Uploaded tracks are typically tracks
+            false => (input.to_string(), MediaType::Playlist), // Other UUIDs are typically playlists
+        }
     } else if input.parse::<u64>().is_ok() {
         // Numeric IDs - default to track
         (input.to_string(), MediaType::Track)
@@ -51,6 +53,7 @@ pub fn parse_tidal_url(url: &str) -> Option<(String, MediaType)> {
 
     let media_type = match media_type_str {
         "track" => MediaType::Track,
+        "upload" => MediaType::Track,
         "album" => MediaType::Album,
         "playlist" => MediaType::Playlist,
         _ => return None,
