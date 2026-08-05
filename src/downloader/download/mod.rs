@@ -30,7 +30,18 @@ impl Downloader {
         media_type: MediaType,
     ) -> Result<bool> {
         let extension = self.get_file_extension(playback_info);
-        let base_name = format!("{}", sanitize_filename::sanitize(&track.title));
+        let tag_metadata = TrackTagMetadata::from_track(track, album_context);
+
+        // base name formatting
+        let base_name = if media_type != MediaType::Track {
+            format!(
+                "{:02} {}",
+                tag_metadata.track_number,
+                sanitize_filename::sanitize(&track.title)
+            )
+        } else {
+            sanitize_filename::sanitize(&track.title)
+        };
 
         if self
             .find_existing_track_path(output_dir, &base_name)
@@ -39,16 +50,7 @@ impl Downloader {
             return Ok(false); // file was skipped
         }
 
-        let tag_metadata = TrackTagMetadata::from_track(track, album_context);
-
-        let output_path = if media_type != MediaType::Track {
-            output_dir.join(format!(
-                "{:02} {}.{}",
-                tag_metadata.track_number, base_name, extension
-            ))
-        } else {
-            output_dir.join(format!("{}.{}", base_name, extension))
-        };
+        let output_path = output_dir.join(format!("{}.{}", base_name, extension));
 
         match &playback_info.manifest_parsed {
             Some(ManifestType::Dash(dash)) => {
