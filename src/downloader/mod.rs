@@ -20,6 +20,7 @@ pub struct Downloader {
     http_client: reqwest::Client,
     max_parallel: usize,
     audio_quality: AudioQuality,
+    force_download: bool,
 }
 
 impl Downloader {
@@ -28,6 +29,7 @@ impl Downloader {
         output_dir: PathBuf,
         audio_quality: AudioQuality,
         max_parallel: usize,
+        force_download: bool,
     ) -> Self {
         if audio_quality == AudioQuality::Lossless || audio_quality == AudioQuality::HiRes {
             tidal_client.set_playback_mode(PlaybackMode::Offline);
@@ -39,6 +41,7 @@ impl Downloader {
             http_client: reqwest::Client::new(),
             max_parallel,
             audio_quality,
+            force_download,
         }
     }
 }

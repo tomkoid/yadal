@@ -67,7 +67,13 @@ async fn main() -> Result<()> {
     println!("output directory: {}\n", output_path.display());
 
     // create downloader
-    let downloader = Downloader::new(client, output_path, cli.quality.into(), cli.parallel);
+    let downloader = Downloader::new(
+        client,
+        output_path,
+        cli.quality.into(),
+        cli.parallel,
+        cli.force,
+    );
 
     // download based on type
     let summary = match media_type {
@@ -78,13 +84,13 @@ async fn main() -> Result<()> {
         MediaType::Album => {
             println!("downloading album {}...", media_id);
             downloader
-                .download_media(&media_id, MediaType::Album, cli.force_recheck)
+                .download_media(&media_id, MediaType::Album)
                 .await?
         }
         MediaType::Playlist => {
             println!("downloading playlist {}...", media_id);
             downloader
-                .download_media(&media_id, MediaType::Playlist, cli.force_recheck)
+                .download_media(&media_id, MediaType::Playlist)
                 .await?
         }
     };

@@ -3,12 +3,15 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::downloader::Downloader;
+use crate::{downloader::Downloader, types::MediaType};
 
 use anyhow::{Context, Result};
 use multitag::data::Picture;
 use reqwest::header::CONTENT_TYPE;
-use tidlers::client::models::track::playback::{ManifestType, TrackPlaybackInfoResponse};
+use tidlers::client::models::track::{
+    Track,
+    playback::{ManifestType, TrackPlaybackInfoResponse},
+};
 use tokio::process::Command;
 
 impl Downloader {
@@ -91,7 +94,15 @@ impl Downloader {
         Ok(declared.to_string())
     }
 
-    pub fn find_existing_track_path(&self, output_dir: &Path, base_name: &str) -> Option<PathBuf> {
+    pub fn find_existing_track_path(
+        &self,
+        output_dir: &Path,
+        track: &Track,
+        media_type: &MediaType,
+        index: Option<usize>, // only used for playlists to determine track number
+    ) -> Option<PathBuf> {
+        let base_name = self.get_track_base_name(&track, media_type, index);
+
         for ext in ["flac", "m4a", "mp3"] {
             let path = output_dir.join(format!("{}.{}", base_name, ext));
             if path.exists() {
@@ -99,6 +110,31 @@ impl Downloader {
             }
         }
         None
+    }
+
+    /// get the base name for a track file, including track number and sanitized title
+    /// this will be useful in the future if we want to support custom formatting of track file
+    /// names
+    pub fn get_track_base_name(
+        &self,
+        track: &Track,
+        media_type: &MediaType,
+        index: Option<usize>,
+    ) -> String {
+        // use album original track numbers and for playlists use their positional index
+        let track_number = match media_type {
+            MediaType::Album => track.track_number,
+            MediaType::Playlist => {
+                (index.expect("track is in playlist but no index supplied") + 1) as u32
+            }
+            _ => unreachable!(),
+        };
+
+        format!(
+            "{:02} {}",
+            track_number,
+            sanitize_filename::sanitize(&track.title)
+        )
     }
 
     pub async fn fetch_cover_picture(&self, cover_url: &str) -> Result<Picture> {
@@ -165,18 +201,5 @@ impl Downloader {
             return Some("mp3");
         }
         None
-    }
-
-    pub fn track_exists_in_directory(
-        &self,
-        output_dir: &PathBuf,
-        _track_number: u32,
-        title: &str,
-    ) -> bool {
-        let base_name = format!("{}", sanitize_filename::sanitize(title));
-        let possible_extensions = ["m4a", "flac", "mp3"];
-        possible_extensions
-            .iter()
-            .any(|ext| output_dir.join(format!("{}.{}", base_name, ext)).exists())
     }
 }

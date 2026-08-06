@@ -26,30 +26,12 @@ impl Downloader {
         playback_info: &TrackPlaybackInfoResponse,
         output_dir: &PathBuf,
         album_context: Option<AlbumTagContext>,
+        index: Option<usize>,
         pb: Option<&ProgressBar>,
         media_type: MediaType,
     ) -> Result<bool> {
         let extension = self.get_file_extension(playback_info);
-        let tag_metadata = TrackTagMetadata::from_track(track, album_context);
-
-        // base name formatting
-        let base_name = if media_type != MediaType::Track {
-            format!(
-                "{:02} {}",
-                tag_metadata.track_number,
-                sanitize_filename::sanitize(&track.title)
-            )
-        } else {
-            sanitize_filename::sanitize(&track.title)
-        };
-
-        if self
-            .find_existing_track_path(output_dir, &base_name)
-            .is_some()
-        {
-            return Ok(false); // file was skipped
-        }
-
+        let base_name = self.get_track_base_name(track, &media_type, index);
         let output_path = output_dir.join(format!("{}.{}", base_name, extension));
 
         match &playback_info.manifest_parsed {
@@ -73,6 +55,7 @@ impl Downloader {
             .maybe_convert_flac_container(&output_path, playback_info)
             .await?;
 
+        let tag_metadata = TrackTagMetadata::from_track(track, album_context);
         self.tag_downloaded_file(&output_path, &tag_metadata)
             .await
             .context("Failed to tag downloaded file")?;

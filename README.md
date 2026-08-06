@@ -1,30 +1,31 @@
 # Yadal
 
-Yadal (Yet Another Downloader for TIDAL) is a command-line tool for downloading music from TIDAL. It supports downloading individual tracks, albums, and playlists with configurable audio quality settings.
+Yadal (Yet Another Downloader for TIDAL) is a pretty simple command-line tool for downloading music from TIDAL. It supports downloading individual tracks, albums, and playlists with configurable audio quality settings.
 
 ## Purpose
 
 This project serves as a practical showcase of [Tidlers](https://codeberg.org/tomkoid/tidlers), a Rust library for interacting with the TIDAL API. Yadal demonstrates how to build a complete application using Tidlers for authentication, API interaction, and media streaming.
 
-## Features
+## Why another TIDAL downloader? 
 
-- Download tracks, albums, and playlists from TIDAL
+- Download tracks, albums, and playlists from TIDAL in 24-bit, 192kHz
 - Support for multiple audio quality levels: low, high, lossless, and hi-res
 - Parallel downloads
-- Session persistence across runs
 - Works on Linux, macOS, and Windows (likely even more if you would want to)
 - Progress indicators for downloads
-- Automatic file organization
 - Tags downloaded audio with TIDAL metadata (title, artist, album, cover art)
-- HiRes FLAC-in-MP4 streams are converted to FLAC containers (requires `ffmpeg`)
 
-## Installation
+## Installation (Linux/macOS)
+
+To install Yadal, you need to have Rust installed. You can install Rust using [rustup](https://rustup.rs/).
+
+Also, Yadal for now depends on `ffmpeg` when downloading lossless or hi-res audio. Make sure you have `ffmpeg` installed and available in your PATH.
 
 ```bash
-cargo build --release
+cargo install --git https://codeberg.org/tomkoid/yadal --locked
 ```
 
-The binary will be available at `target/release/yadal`.
+The binary will be available in your `~/.cargo/bin`.
 
 ## Usage
 
@@ -90,12 +91,12 @@ Use legacy OAuth2 device flow:
 yadal --oauth2 https://tidal.com/track/341764697
 ```
 
-Force album/playlist recheck (old behavior):
+Download album items even if they already exist:
 ```bash
-yadal --force-recheck https://tidal.com/album/55130630
+yadal --force https://tidal.com/album/55130630
 ```
 
-## Authentication
+## Authentication tutorial
 
 On first run, Yadal will initiate a PKCE flow by default:
 
@@ -104,7 +105,7 @@ On first run, Yadal will initiate a PKCE flow by default:
 3. After redirect to an error page, copy and paste the full redirect URL back into the terminal
 4. The session will be saved automatically
 
-If you pass `--oauth2`, Yadal will use the legacy OAuth2 device flow instead.
+If you pass `--oauth2`, Yadal will use the legacy OAuth2 device flow instead. This flow is less stable and should be used only if you do not want to download in full quality.
 
 Session files are stored in platform-specific locations:
 - Linux: `~/.local/share/yadal/session.json`
@@ -112,16 +113,6 @@ Session files are stored in platform-specific locations:
 - Windows: `%APPDATA%\yadal\session.json`
 
 Sessions are automatically refreshed when needed, so you only need to authenticate once.
-
-## Why Another TIDAL Downloader?
-
-While several TIDAL downloaders exist, Yadal has:
-
-- Efficient parallel downloads
-- Support for high-resolution audio formats
-- Cross-platform support (Linux, macOS, Windows, probably more)
-- Accepts both full URLs and raw media IDs
-- Accepts multiple media types (tracks, albums, playlists) in a single command
 
 ## Requirements
 

@@ -42,7 +42,7 @@ impl Downloader {
             .await;
 
         let results = stream::iter(tracks.into_iter().enumerate())
-            .map(async |(_, track)| {
+            .map(async |(index, track)| {
                 let downloader = Arc::clone(&downloader);
                 let client = Arc::clone(&client);
                 let output_dir = output_dir.clone();
@@ -85,6 +85,7 @@ impl Downloader {
                                     &playback_info,
                                     &output_dir,
                                     album_context.clone(),
+                                    Some(index),
                                     Some(&pb),
                                     media_type
                                 )

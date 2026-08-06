@@ -61,6 +61,7 @@ impl Downloader {
                 &playback_info,
                 &self.output_dir,
                 album_context,
+                None,
                 Some(&pb),
                 MediaType::Track,
             )
@@ -78,12 +79,7 @@ impl Downloader {
         Ok(summary)
     }
 
-    pub async fn download_media(
-        &self,
-        id: &str,
-        media_type: MediaType,
-        force_recheck: bool,
-    ) -> Result<DownloadSummary> {
+    pub async fn download_media(&self, id: &str, media_type: MediaType) -> Result<DownloadSummary> {
         // fetch metadata
         let (dir_name, album_tag_context) = match media_type {
             MediaType::Album => {
@@ -167,33 +163,28 @@ impl Downloader {
         }
 
         let mut already_downloaded = 0usize;
-        let tracks_to_download = if force_recheck {
-            all_tracks
-        } else {
-            all_tracks
+        let tracks_to_download = match self.force_download {
+            true => all_tracks.clone(),
+            false => all_tracks
                 .into_iter()
                 .enumerate()
                 .filter_map(|(index, track)| {
-                    // use album original track numbers and for playlists use their positional index
-                    let track_number = match media_type {
-                        MediaType::Album => track.track_number,
-                        MediaType::Playlist => (index + 1) as u32,
-                        _ => unreachable!(),
-                    };
-
-                    if self.track_exists_in_directory(&target_dir, track_number, &track.title) {
+                    if self
+                        .find_existing_track_path(&target_dir, &track, &media_type, Some(index))
+                        .is_some()
+                    {
                         already_downloaded += 1;
                         None
                     } else {
                         Some(track)
                     }
                 })
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>(),
         };
 
         if already_downloaded > 0 {
             println!(
-                "skipping {} tracks already in directory (use --force-recheck to revalidate)\n",
+                "skipping {} tracks already in directory (use --force to redownload)\n",
                 already_downloaded
             );
         }
