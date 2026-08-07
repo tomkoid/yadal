@@ -144,9 +144,9 @@ impl Downloader {
         let limit = 100;
 
         loop {
-            let total_items: usize;
+            
 
-            match media_type {
+            let total_items: usize = match media_type {
                 MediaType::Album => {
                     let items = self
                         .tidal_client
@@ -157,7 +157,7 @@ impl Downloader {
                     for item in items.items {
                         all_tracks.push(item.item);
                     }
-                    total_items = items.total_number_of_items as usize;
+                    items.total_number_of_items as usize
                 }
                 MediaType::Playlist => {
                     let items = self
@@ -169,10 +169,10 @@ impl Downloader {
                     for item in items.items {
                         all_tracks.push(item.item);
                     }
-                    total_items = items.total_number_of_items as usize;
+                    items.total_number_of_items as usize
                 }
                 _ => unreachable!(),
-            }
+            };
 
             if all_tracks.len() >= total_items {
                 break;

@@ -82,8 +82,8 @@ impl Downloader {
 
         let has_album_info =
             metadata.album_title.is_some() || metadata.album_artist.is_some() || cover.is_some();
-        if has_album_info {
-            if let Err(e) = tag.set_album_info(multitag::data::Album {
+        if has_album_info
+            && let Err(e) = tag.set_album_info(multitag::data::Album {
                 title: metadata.album_title.clone(),
                 artist: metadata.album_artist.clone(),
                 cover,
@@ -94,7 +94,6 @@ impl Downloader {
                     e
                 ));
             }
-        }
 
         if let Some(date) = metadata.release_date.as_deref() {
             match Timestamp::from_str(date) {

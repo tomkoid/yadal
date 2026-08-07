@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use indicatif::ProgressBar;
-use std::path::PathBuf;
+use std::path::Path;
 use tidlers::client::models::track::{
     Track,
     playback::{ManifestType, TrackPlaybackInfoResponse},
@@ -25,7 +25,7 @@ impl Downloader {
         &self,
         track: &Track,
         playback_info: &TrackPlaybackInfoResponse,
-        output_dir: &PathBuf,
+        output_dir: &Path,
         album_context: Option<AlbumTagContext>,
         index: Option<usize>,
         pb: Option<&ProgressBar>,

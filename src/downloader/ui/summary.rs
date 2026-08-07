@@ -36,7 +36,7 @@ impl DownloadSummary {
         if !self.failed.is_empty() {
             println!("  failed: {}", self.failed.len());
             for track in &self.failed {
-                println!("{}- {} ({})", " ".repeat(4), track.0, track.1.to_string());
+                println!("{}- {} ({})", " ".repeat(4), track.0, track.1);
             }
         }
     }

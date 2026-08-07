@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{path::Path, sync::Arc, time::Duration};
 
 use anyhow::{Context, Result};
 use futures::{StreamExt, stream};
@@ -20,7 +20,7 @@ impl Downloader {
     pub async fn download_tracks_parallel(
         &self,
         tracks: Vec<Track>,
-        output_dir: &PathBuf,
+        output_dir: &Path,
         _use_index_as_track_number: bool,
         album_context: Option<AlbumTagContext>,
         media_type: MediaType,
@@ -45,7 +45,6 @@ impl Downloader {
             .map(async |(index, track)| {
                 let downloader = Arc::clone(&downloader);
                 let client = Arc::clone(&client);
-                let output_dir = output_dir.clone();
                 let album_context = album_context.clone();
                 let rate_limit_state = Arc::clone(&rate_limit_state);
                 let multi_progress = multi_progress.clone();
@@ -63,7 +62,7 @@ impl Downloader {
                             .template("{spinner} [{elapsed_precise}] {msg}")
                             .unwrap(),
                     );
-                    pb.set_message(format!("{}", track.title));
+                    pb.set_message(track.title.to_string());
 
                     let track_id = track.id.to_string();
                     let result = {
@@ -84,7 +83,7 @@ impl Downloader {
                                 .download_track_with_info_pb(
                                     &track,
                                     &playback_info,
-                                    &output_dir,
+                                    output_dir,
                                     album_context.clone(),
                                     Some(index),
                                     Some(&pb),
@@ -92,8 +91,8 @@ impl Downloader {
                                 )
                                 .await;
 
-                            if result.is_ok() {
-                                match result.as_ref().unwrap() {
+                            if let Ok(res) = &result {
+                                match res {
                                     // true => pb.finish_with_message(format!("✓ {}", track.title)),
                                     true => pb.finish(),
                                     false => pb.finish_with_message(format!("○ {}", track.title)),

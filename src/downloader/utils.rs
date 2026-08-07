@@ -101,7 +101,7 @@ impl Downloader {
         media_type: &MediaType,
         index: Option<usize>, // only used for playlists to determine track number
     ) -> Option<PathBuf> {
-        let base_name = self.get_track_base_name(&track, media_type, index);
+        let base_name = self.get_track_base_name(track, media_type, index);
 
         for ext in ["flac", "m4a", "mp3"] {
             let path = output_dir.join(format!("{}.{}", base_name, ext));
@@ -172,11 +172,10 @@ impl Downloader {
 
     pub fn get_file_extension(&self, playback_info: &TrackPlaybackInfoResponse) -> &str {
         // Determine file extension based on container/MIME type
-        if let Some(mime_type) = playback_info.get_mime_type() {
-            if let Some(ext) = Self::extension_from_mime_type(&mime_type) {
+        if let Some(mime_type) = playback_info.get_mime_type()
+            && let Some(ext) = Self::extension_from_mime_type(&mime_type) {
                 return ext;
             }
-        }
 
         match &playback_info.manifest_parsed {
             Some(ManifestType::Dash(_)) => "m4a", // DASH uses MP4 container

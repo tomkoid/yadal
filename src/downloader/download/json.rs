@@ -28,8 +28,8 @@ impl Downloader {
 
         let total_size = response.content_length().unwrap_or(0);
 
-        if let Some(pb) = pb {
-            if total_size > 0 {
+        if let Some(pb) = pb
+            && total_size > 0 {
                 pb.set_length(total_size);
                 pb.set_style(
                     ProgressStyle::default_bar()
@@ -38,7 +38,6 @@ impl Downloader {
                     .progress_chars("#>-")
                 );
             }
-        }
 
         let mut downloaded: u64 = 0;
         let mut stream = response.bytes_stream();
