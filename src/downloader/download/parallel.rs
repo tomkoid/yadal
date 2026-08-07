@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::{Context, Result};
 use futures::{StreamExt, stream};
@@ -57,9 +57,10 @@ impl Downloader {
                     rate_limit_state.wait_if_rate_limited().await;
 
                     let pb = multi_progress.add(ProgressBar::new_spinner());
+                    pb.enable_steady_tick(Duration::from_millis(100));
                     pb.set_style(
                         ProgressStyle::default_spinner()
-                            .template("{spinner:.green} [{elapsed_precise}] {msg}")
+                            .template("{spinner} [{elapsed_precise}] {msg}")
                             .unwrap(),
                     );
                     pb.set_message(format!("{}", track.title));

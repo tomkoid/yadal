@@ -20,7 +20,7 @@ impl Downloader {
             pb.set_position(0);
             pb.set_style(
                 ProgressStyle::default_bar()
-                    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} segments\t{msg} (eta {eta})")
+                    .template("{spinner} [{bar:10.magenta/blue}] {pos:3}/{len:3} segments (eta {eta}) [{elapsed}]\t{wide_msg}")
                     .unwrap()
                     .progress_chars("#>-"),
             );
@@ -170,7 +170,7 @@ impl Downloader {
         std::fs::write(output_path, combined_data).context("Failed to write file")?;
 
         if let Some(pb) = pb {
-            pb.set_message(format!("{track_title}: Saved successfully."));
+            pb.finish_with_message(format!("{track_title}: Downloaded"));
         }
 
         Ok(())

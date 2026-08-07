@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use anyhow::{Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use tidlers::client::models::track::config::TrackPlaybackInfoConfig;
@@ -24,7 +26,9 @@ impl Downloader {
             .is_some()
             && !self.force_download
         {
-            println!("skipping track (already exists in output directory, overwrite with --force)");
+            eprintln!(
+                "skipping track (already exists in output directory, overwrite with --force)"
+            );
             return Ok(DownloadSummary {
                 downloaded: 0,
                 skipped: 1,
@@ -61,9 +65,10 @@ impl Downloader {
         };
 
         let pb = ProgressBar::new_spinner();
+        pb.enable_steady_tick(Duration::from_millis(100));
         pb.set_style(
             ProgressStyle::default_spinner()
-                .template("{spinner:.green} [{elapsed_precise}] {msg}")
+                .template("{spinner} [{elapsed_precise}] {msg}")
                 .unwrap(),
         );
         pb.set_message("Downloading...");
@@ -83,10 +88,10 @@ impl Downloader {
         let mut summary = DownloadSummary::new();
         if was_downloaded {
             summary.downloaded += 1;
-            pb.finish_with_message("✓ Downloaded");
+            pb.finish_with_message("Downloaded");
         } else {
             summary.skipped += 1;
-            pb.finish_with_message("○ Already exists");
+            pb.finish_with_message("Already exists");
         }
 
         Ok(summary)
