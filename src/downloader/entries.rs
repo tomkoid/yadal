@@ -19,6 +19,18 @@ impl Downloader {
         println!("artist: {}", track.artist.name);
         println!("album: {}", track.album.as_ref().unwrap().title);
 
+        if self
+            .find_existing_track_path(&self.output_dir, &track, &MediaType::Track, None)
+            .is_some()
+        {
+            println!("skipping track (already exists in output directory, overwrite with --force)");
+            return Ok(DownloadSummary {
+                downloaded: 0,
+                skipped: 1,
+                failed: Vec::new(),
+            });
+        }
+
         let playback_info = self
             .tidal_client
             .get_track_postpaywall_playback_info(
