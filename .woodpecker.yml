@@ -1,0 +1,12 @@
+when:
+  - event: [push, pull_request, tag]
+
+steps:
+  check:
+    image: rust:latest
+    commands:
+      - rustup component add clippy
+      - rustup component add rustfmt
+      - cargo check --workspace --all-targets
+      - cargo clippy --workspace --all-targets -- -D warnings
+      - cargo test --workspace --all-targets
