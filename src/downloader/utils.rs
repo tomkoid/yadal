@@ -121,6 +121,10 @@ impl Downloader {
         media_type: &MediaType,
         index: Option<usize>,
     ) -> String {
+        if MediaType::Track == *media_type {
+            return sanitize_filename::sanitize(&track.title);
+        }
+
         // use album original track numbers and for playlists use their positional index
         let track_number = match media_type {
             MediaType::Album => track.track_number,
