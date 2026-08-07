@@ -22,6 +22,7 @@ impl Downloader {
         if self
             .find_existing_track_path(&self.output_dir, &track, &MediaType::Track, None)
             .is_some()
+            && !self.force_download
         {
             println!("skipping track (already exists in output directory, overwrite with --force)");
             return Ok(DownloadSummary {
