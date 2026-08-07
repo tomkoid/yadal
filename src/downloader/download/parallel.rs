@@ -3,14 +3,14 @@ use std::{path::Path, sync::Arc, time::Duration};
 use anyhow::{Context, Result};
 use futures::{StreamExt, stream};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use tidlers::{
-    TidalError,
-    client::models::track::{Track, config::TrackPlaybackInfoConfig},
-};
+use tidlers::{TidalError, client::models::track::config::TrackPlaybackInfoConfig};
 
 use crate::{
     downloader::{
-        Downloader, context::AlbumTagContext, rate_limiter::RateLimitState,
+        Downloader,
+        context::AlbumTagContext,
+        download::{DownloadTrackRequest, QueuedTrack},
+        rate_limiter::RateLimitState,
         ui::summary::DownloadSummary,
     },
     types::MediaType,
@@ -19,15 +19,14 @@ use crate::{
 impl Downloader {
     pub async fn download_tracks_parallel(
         &self,
-        tracks: Vec<Track>,
+        queued_tracks: Vec<QueuedTrack>,
         output_dir: &Path,
-        _use_index_as_track_number: bool,
         album_context: Option<AlbumTagContext>,
         media_type: MediaType,
     ) -> Result<DownloadSummary> {
         println!(
             "\ndownloading {} tracks in parallel (max {})...",
-            tracks.len(),
+            queued_tracks.len(),
             self.max_parallel
         );
 
@@ -41,8 +40,9 @@ impl Downloader {
             .set_multi_progress(multi_progress.clone())
             .await;
 
-        let results = stream::iter(tracks.into_iter().enumerate())
-            .map(async |(index, track)| {
+        let results = stream::iter(queued_tracks)
+            .map(async |queued_track| {
+                let QueuedTrack { track, index } = queued_track;
                 let downloader = Arc::clone(&downloader);
                 let client = Arc::clone(&client);
                 let album_context = album_context.clone();
@@ -80,23 +80,19 @@ impl Downloader {
                             rate_limit_state.on_success().await;
 
                             let result = downloader
-                                .download_track_with_info_pb(
-                                    &track,
-                                    &playback_info,
+                                .download_track_with_info_pb(DownloadTrackRequest {
+                                    track: &track,
+                                    playback_info: &playback_info,
                                     output_dir,
-                                    album_context.clone(),
-                                    Some(index),
-                                    Some(&pb),
-                                    media_type
-                                )
+                                    album_context: album_context.clone(),
+                                    index: Some(index),
+                                    pb: Some(&pb),
+                                    media_type,
+                                })
                                 .await;
 
-                            if let Ok(res) = &result {
-                                match res {
-                                    // true => pb.finish_with_message(format!("✓ {}", track.title)),
-                                    true => pb.finish(),
-                                    false => pb.finish_with_message(format!("○ {}", track.title)),
-                                }
+                            if result.is_ok() {
+                                pb.finish();
                             } else {
                                 pb.set_message(format!(
                                     "✗ {} (attempt {}/{}, retrying...)",

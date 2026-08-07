@@ -173,9 +173,10 @@ impl Downloader {
     pub fn get_file_extension(&self, playback_info: &TrackPlaybackInfoResponse) -> &str {
         // Determine file extension based on container/MIME type
         if let Some(mime_type) = playback_info.get_mime_type()
-            && let Some(ext) = Self::extension_from_mime_type(&mime_type) {
-                return ext;
-            }
+            && let Some(ext) = Self::extension_from_mime_type(&mime_type)
+        {
+            return ext;
+        }
 
         match &playback_info.manifest_parsed {
             Some(ManifestType::Dash(_)) => "m4a", // DASH uses MP4 container

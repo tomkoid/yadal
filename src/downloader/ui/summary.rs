@@ -15,12 +15,11 @@ impl DownloadSummary {
         }
     }
 
-    pub fn from_results(results: Vec<(String, Result<bool>)>) -> Self {
+    pub fn from_results(results: Vec<(String, Result<()>)>) -> Self {
         let mut summary = Self::new();
         for (track_name, result) in results {
             match result {
-                Ok(true) => summary.downloaded += 1,
-                Ok(false) => summary.skipped += 1,
+                Ok(()) => summary.downloaded += 1,
                 Err(e) => summary.failed.push((track_name, e)),
             }
         }

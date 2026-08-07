@@ -87,13 +87,14 @@ impl Downloader {
                 title: metadata.album_title.clone(),
                 artist: metadata.album_artist.clone(),
                 cover,
-            }) {
-                return Err(anyhow::anyhow!(
-                    "Failed to set album info for {}: {}",
-                    metadata.title,
-                    e
-                ));
-            }
+            })
+        {
+            return Err(anyhow::anyhow!(
+                "Failed to set album info for {}: {}",
+                metadata.title,
+                e
+            ));
+        }
 
         if let Some(date) = metadata.release_date.as_deref() {
             match Timestamp::from_str(date) {
