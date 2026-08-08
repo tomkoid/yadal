@@ -85,7 +85,6 @@ impl Downloader {
 
         let mut summary = DownloadSummary::new();
         summary.downloaded += 1;
-        pb.finish_with_message("Downloaded");
 
         Ok(summary)
     }

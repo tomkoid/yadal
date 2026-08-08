@@ -60,6 +60,11 @@ impl Downloader {
 
         std::fs::write(output_path, file_data).context("Failed to write file")?;
 
+        if let Some(pb) = pb {
+            pb.set_position(total_size);
+            pb.finish_with_message("Downloaded");
+        }
+
         Ok(())
     }
 }
