@@ -32,12 +32,19 @@
             };
           };
 
-          buildInputs = with pkgs; [ ffmpeg ];
+          nativeBuildInputs = [ pkgs.makeBinaryWrapper ];
+
+          postInstall = ''
+            wrapProgram $out/bin/yadal \
+              --prefix PATH : ${lib.makeBinPath [ pkgs.ffmpeg ]}
+          '';
+
+          __structuredAttrs = true;
 
           meta = {
             description = "Yet another TIDAL Hi-Res audio downloader for the CLI";
             homepage = "https://codeberg.org/tomkoid/yadal";
-            license = lib.licenses.gpl3;
+            license = lib.licenses.gpl3Only;
             changelog = "https://codeberg.org/tomkoid/yadal/releases";
             maintainers = with lib.maintainers; [ tomkoid ];
             mainProgram = "yadal";
