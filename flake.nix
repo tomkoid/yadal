@@ -35,7 +35,7 @@
           buildInputs = with pkgs; [ ffmpeg ];
 
           meta = {
-            description = "Yet another TIDAL track, playlist, album CLI downloader";
+            description = "Yet another TIDAL Hi-Res audio downloader for the CLI";
             homepage = "https://codeberg.org/tomkoid/yadal";
             license = lib.licenses.gpl3;
             changelog = "https://codeberg.org/tomkoid/yadal/releases";
