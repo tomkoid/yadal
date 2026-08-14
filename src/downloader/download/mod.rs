@@ -26,7 +26,7 @@ pub struct QueuedTrack {
 pub struct DownloadTrackRequest<'a> {
     pub track: &'a Track,
     pub playback_info: &'a TrackPlaybackInfoResponse,
-    pub output_dir: &'a Path,
+    pub output_path: &'a Path,
     pub album_context: Option<AlbumTagContext>,
     pub index: Option<usize>,
     pub pb: Option<&'a ProgressBar>,
@@ -42,7 +42,7 @@ impl Downloader {
         let extension = self.get_file_extension(request.playback_info);
         let base_name = self.get_track_base_name(request.track, &request.media_type, request.index);
         let output_path = request
-            .output_dir
+            .output_path
             .join(format!("{}.{}", base_name, extension));
 
         match &request.playback_info.manifest_parsed {

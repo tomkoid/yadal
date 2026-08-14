@@ -28,9 +28,9 @@ impl Downloader {
         println!("album: {}", track.album.as_ref().unwrap().title);
 
         if self
-            .find_existing_track_path(&self.output_dir, &track, &MediaType::Track, None)
+            .find_existing_track_path(&self.options.output_path, &track, &MediaType::Track, None)
             .is_some()
-            && !self.force_download
+            && !self.options.force_download
         {
             eprintln!(
                 "skipping track (already exists in output directory, overwrite with --force)"
@@ -47,7 +47,7 @@ impl Downloader {
             .get_track_postpaywall_playback_info(
                 track_id.to_string(),
                 Some(TrackPlaybackInfoConfig {
-                    audio_quality: Some(self.audio_quality.clone()),
+                    audio_quality: Some(self.options.audio_quality.clone()),
                     ..Default::default()
                 }),
             )
@@ -75,7 +75,7 @@ impl Downloader {
         self.download_track_with_info_pb(DownloadTrackRequest {
             track: &track,
             playback_info: &playback_info,
-            output_dir: &self.output_dir,
+            output_path: &self.options.output_path,
             album_context,
             index: None,
             pb: Some(&pb),
@@ -94,7 +94,10 @@ impl Downloader {
             .resolve_media_dir_and_album_context(id, media_type)
             .await?;
 
-        let target_dir = self.output_dir.join(sanitize_filename::sanitize(dir_name));
+        let target_dir = self
+            .options
+            .output_path
+            .join(sanitize_filename::sanitize(dir_name));
         std::fs::create_dir_all(&target_dir).context("Failed to create media directory")?;
 
         let all_tracks = self.fetch_media_tracks(id, media_type).await?;
@@ -229,7 +232,7 @@ impl Downloader {
         let mut queued_tracks = Vec::new();
 
         for (index, track) in tracks.into_iter().enumerate() {
-            if !self.force_download
+            if !self.options.force_download
                 && self
                     .find_existing_track_path(target_dir, &track, &media_type, Some(index))
                     .is_some()

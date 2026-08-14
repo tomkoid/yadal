@@ -6,6 +6,7 @@ use clap::Parser;
 mod args;
 mod auth;
 mod downloader;
+mod options;
 mod output;
 mod parser;
 mod types;
@@ -16,6 +17,7 @@ use types::MediaType;
 
 use crate::{
     args::{Cli, MediaTypeArg},
+    options::DownloaderOptions,
     output::prepare_output_directory,
     parser::parse_tidal_input,
 };
@@ -51,10 +53,10 @@ async fn main() -> Result<()> {
     let (media_id, detected_type) = parse_tidal_input(&cli.id);
 
     let media_type = match cli.media_type {
-        MediaTypeArg::Auto => detected_type,
         MediaTypeArg::Track => MediaType::Track,
         MediaTypeArg::Album => MediaType::Album,
         MediaTypeArg::Playlist => MediaType::Playlist,
+        MediaTypeArg::Auto => detected_type,
     };
 
     let output_path = match cli.output {
@@ -62,18 +64,21 @@ async fn main() -> Result<()> {
         None => prepare_output_directory().context("Failed to prepare output directory")?,
     };
 
-    println!("audio quality: {:?}", cli.quality);
-    println!("media type: {:?}", media_type);
-    println!("output directory: {}\n", output_path.display());
+    // this is not necessarilly needed right now but will be used if a config file is added
+    let options = DownloaderOptions {
+        media_type,
+        output_path,
+        audio_quality: cli.quality.into(),
+        force_download: cli.force,
+        max_parallel: cli.parallel,
+    };
+
+    println!("audio quality: {:?}", options.audio_quality);
+    println!("media type: {:?}", options.media_type);
+    println!("output directory: {}\n", options.output_path.display());
 
     // create downloader
-    let downloader = Downloader::new(
-        client,
-        output_path,
-        cli.quality.into(),
-        cli.parallel,
-        cli.force,
-    );
+    let downloader = Downloader::new(client, options);
 
     // download based on type
     let summary = match media_type {

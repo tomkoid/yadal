@@ -1,9 +1,6 @@
-use std::path::PathBuf;
+use tidlers::TidalClient;
 
-use tidlers::{
-    TidalClient,
-    client::models::playback::{AudioQuality, PlaybackMode},
-};
+use crate::options::DownloaderOptions;
 
 pub mod context;
 pub mod download;
@@ -16,32 +13,16 @@ pub mod utils;
 /// Struct for handling all download operations
 pub struct Downloader {
     tidal_client: TidalClient,
-    output_dir: PathBuf,
     http_client: reqwest::Client,
-    max_parallel: usize,
-    audio_quality: AudioQuality,
-    force_download: bool,
+    options: DownloaderOptions,
 }
 
 impl Downloader {
-    pub fn new(
-        mut tidal_client: TidalClient,
-        output_dir: PathBuf,
-        audio_quality: AudioQuality,
-        max_parallel: usize,
-        force_download: bool,
-    ) -> Self {
-        if audio_quality == AudioQuality::Lossless || audio_quality == AudioQuality::HiRes {
-            tidal_client.set_playback_mode(PlaybackMode::Offline);
-        }
-
+    pub fn new(tidal_client: TidalClient, options: DownloaderOptions) -> Self {
         Self {
             tidal_client,
-            output_dir,
             http_client: reqwest::Client::new(),
-            max_parallel,
-            audio_quality,
-            force_download,
+            options,
         }
     }
 }

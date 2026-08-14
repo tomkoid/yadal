@@ -3,7 +3,10 @@ use std::{path::Path, sync::Arc, time::Duration};
 use anyhow::{Context, Result};
 use futures::{StreamExt, stream};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use tidlers::{TidalError, client::models::track::config::TrackPlaybackInfoConfig};
+use tidlers::{
+    TidalError,
+    client::models::{playback::PlaybackMode, track::config::TrackPlaybackInfoConfig},
+};
 
 use crate::{
     downloader::{
@@ -27,7 +30,7 @@ impl Downloader {
         println!(
             "\ndownloading {} tracks in parallel (max {})...",
             queued_tracks.len(),
-            self.max_parallel
+            self.options.max_parallel
         );
 
         let downloader = Arc::new(self);
@@ -69,7 +72,8 @@ impl Downloader {
                         let client_guard = client.lock().await;
                         client_guard
                             .get_track_postpaywall_playback_info(track_id, Some(TrackPlaybackInfoConfig {
-                                audio_quality: Some(self.audio_quality.clone()),
+                                audio_quality: Some(self.options.audio_quality.clone()),
+                                playback_mode: Some(PlaybackMode::Offline),
                                 ..Default::default()
                             }))
                             .await
@@ -83,7 +87,7 @@ impl Downloader {
                                 .download_track_with_info_pb(DownloadTrackRequest {
                                     track: &track,
                                     playback_info: &playback_info,
-                                    output_dir,
+                                    output_path: output_dir,
                                     album_context: album_context.clone(),
                                     index: Some(index),
                                     pb: Some(&pb),
@@ -149,7 +153,7 @@ impl Downloader {
                     }
                 }
             })
-            .buffer_unordered(self.max_parallel)
+            .buffer_unordered(self.options.max_parallel)
             .collect::<Vec<_>>()
             .await;
 

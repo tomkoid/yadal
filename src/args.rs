@@ -52,6 +52,10 @@ pub struct Cli {
     #[arg(short, long)]
     pub force: bool,
 
+    /// Skip tagging
+    #[arg(short, long)]
+    pub skip_tag: bool,
+
     /// Session file path
     #[arg(long, value_parser, default_value_os_t = default_session_file())]
     pub session_file: PathBuf,
