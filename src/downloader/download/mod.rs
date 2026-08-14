@@ -63,9 +63,13 @@ impl Downloader {
             }
         }
 
-        let output_path = self
-            .maybe_convert_flac_container(&output_path, request.playback_info)
-            .await?;
+        let output_path = match self.config.skip_transcode {
+            true => output_path,
+            false => {
+                self.maybe_convert_flac_container(&output_path, request.playback_info)
+                    .await?
+            }
+        };
 
         if !self.config.skip_tag {
             let tag_metadata = TrackTagMetadata::from_track(request.track, request.album_context);

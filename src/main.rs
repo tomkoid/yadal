@@ -71,6 +71,7 @@ async fn main() -> Result<()> {
         force_download: cli.force,
         max_parallel: cli.parallel,
         skip_tag: cli.skip_tag,
+        skip_transcode: cli.skip_transcode,
     };
 
     println!("audio quality: {:?}", options.audio_quality);

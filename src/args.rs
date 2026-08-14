@@ -56,6 +56,10 @@ pub struct Cli {
     #[arg(short, long)]
     pub skip_tag: bool,
 
+    /// Skip transcoding and use the original file (m4a most of the time)
+    #[arg(long)]
+    pub skip_transcode: bool,
+
     /// Session file path
     #[arg(long, value_parser, default_value_os_t = default_session_file())]
     pub session_file: PathBuf,
