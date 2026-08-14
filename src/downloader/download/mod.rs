@@ -67,10 +67,12 @@ impl Downloader {
             .maybe_convert_flac_container(&output_path, request.playback_info)
             .await?;
 
-        let tag_metadata = TrackTagMetadata::from_track(request.track, request.album_context);
-        self.tag_downloaded_file(&output_path, &tag_metadata)
-            .await
-            .context("Failed to tag downloaded file")?;
+        if !self.config.skip_tag {
+            let tag_metadata = TrackTagMetadata::from_track(request.track, request.album_context);
+            self.tag_downloaded_file(&output_path, &tag_metadata)
+                .await
+                .context("Failed to tag downloaded file")?;
+        }
 
         Ok(())
     }
