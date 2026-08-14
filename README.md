@@ -11,6 +11,7 @@ This project serves as a practical showcase of [Tidlers](https://codeberg.org/to
 ## Why another TIDAL downloader? 
 
 - Download tracks, albums, and playlists from TIDAL in 24-bit, 192kHz
+- Download multiple albums at once
 - Support for multiple audio quality levels: low, high, lossless, and hi-res
 - Parallel downloads
 - Works on Linux, macOS, and Windows (likely even more if you would want to)
@@ -46,6 +47,11 @@ yadal https://tidal.com/album/55130630
 Download a playlist:
 ```bash
 yadal https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d
+```
+
+Download a playlist and an album after each other:
+```bash
+yadal https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d,https://tidal.com/album/55130630
 ```
 
 ### Using Raw IDs

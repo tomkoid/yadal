@@ -16,9 +16,9 @@ use types::MediaType;
 
 use crate::{
     args::{Cli, MediaTypeArg},
-    downloader::config::DownloaderConfig,
+    downloader::{config::DownloaderConfig, ui::summary::DownloadSummary},
     output::prepare_output_directory,
-    parser::parse_tidal_input,
+    parser::parse_id_input,
 };
 
 #[tokio::main]
@@ -48,15 +48,8 @@ async fn main() -> Result<()> {
         exit(1);
     }
 
-    // parse ID and determine media type
-    let (media_id, detected_type) = parse_tidal_input(&cli.id);
-
-    let media_type = match cli.media_type {
-        MediaTypeArg::Track => MediaType::Track,
-        MediaTypeArg::Album => MediaType::Album,
-        MediaTypeArg::Playlist => MediaType::Playlist,
-        MediaTypeArg::Auto => detected_type,
-    };
+    // parse IDs and determine media type
+    let targets = parse_id_input(&cli.id);
 
     let output_path = match cli.output {
         Some(path) => path,
@@ -75,7 +68,6 @@ async fn main() -> Result<()> {
 
     // this is not necessarilly needed right now but will be used if a config file is added
     let options = DownloaderConfig {
-        media_type,
         output_path,
         audio_quality: cli.quality.into(),
         force_download: cli.force,
@@ -84,33 +76,76 @@ async fn main() -> Result<()> {
         skip_transcode,
     };
 
-    println!("audio quality: {:?}", options.audio_quality);
-    println!("media type: {:?}", options.media_type);
-    println!("output directory: {}\n", options.output_path.display());
-
     // create downloader
-    let mut downloader = Downloader::new(client, options);
+    let mut downloader = Downloader::new(client, options.clone());
 
-    // download based on type
-    let summary = match media_type {
-        MediaType::Track => {
-            println!("downloading track {}...", media_id);
-            downloader.download_track(&media_id).await?
-        }
-        MediaType::Album => {
-            println!("downloading album {}...", media_id);
-            downloader
-                .download_media(&media_id, MediaType::Album)
-                .await?
-        }
-        MediaType::Playlist => {
-            println!("downloading playlist {}...", media_id);
-            downloader
-                .download_media(&media_id, MediaType::Playlist)
-                .await?
-        }
-    };
+    println!("audio quality: {:?}", options.audio_quality);
+    println!("output directory: {}", options.output_path.display());
 
-    summary.print();
-    exit(summary.get_exit_code());
+    print_full_line();
+
+    let mut summaries: Vec<DownloadSummary> = Vec::new();
+    for target in targets {
+        downloader.reset_state();
+
+        let media_type = match cli.media_type {
+            MediaTypeArg::Track => MediaType::Track,
+            MediaTypeArg::Album => MediaType::Album,
+            MediaTypeArg::Playlist => MediaType::Playlist,
+            MediaTypeArg::Auto => target.media_type,
+        };
+
+        // download based on type
+        let summary = match media_type {
+            MediaType::Track => {
+                println!("downloading track {}...", target.id);
+                downloader.download_track(&target.id).await?
+            }
+            MediaType::Album => {
+                println!("downloading album {}...", target.id);
+                downloader
+                    .download_media(&target.id, MediaType::Album)
+                    .await?
+            }
+            MediaType::Playlist => {
+                println!("downloading playlist {}...", target.id);
+                downloader
+                    .download_media(&target.id, MediaType::Playlist)
+                    .await?
+            }
+        };
+
+        println!(
+            "summary for {}: {} downloaded, {} skipped, {} failed",
+            target.id,
+            summary.downloaded,
+            summary.skipped,
+            summary.failed.len()
+        );
+
+        summaries.push(summary);
+
+        print_full_line();
+    }
+
+    let mut total_summary = DownloadSummary::new();
+    for summary in summaries {
+        total_summary.downloaded += summary.downloaded;
+        total_summary.skipped += summary.skipped;
+        total_summary.failed.extend(summary.failed);
+    }
+
+    total_summary.print();
+    exit(total_summary.get_exit_code());
+}
+
+fn print_full_line() {
+    match crossterm::terminal::size() {
+        Ok((width, _)) => {
+            println!("{}", "=".repeat(width as usize));
+        }
+        Err(_) => {
+            println!("{}", "=".repeat(15));
+        }
+    }
 }

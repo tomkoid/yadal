@@ -27,7 +27,7 @@ impl DownloadSummary {
     }
 
     pub fn print(&self) {
-        println!("\nsummary:");
+        println!("summary:");
         println!("  downloaded: {}", self.downloaded);
         if self.skipped > 0 {
             println!("  skipped: {} (already exist)", self.skipped);

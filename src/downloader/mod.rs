@@ -35,6 +35,10 @@ impl Downloader {
             state,
         }
     }
+
+    pub fn reset_state(&mut self) {
+        self.state = DownloaderState::new();
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -111,7 +111,7 @@ impl Downloader {
 
         if already_downloaded > 0 {
             println!(
-                "skipping {} tracks already in directory (use --force to redownload)\n",
+                "skipping {} tracks already in directory (use --force to redownload)",
                 already_downloaded
             );
         }
@@ -142,6 +142,8 @@ impl Downloader {
         let mut summary = self
             .download_tracks_parallel(&target_dir, album_tag_context, media_type)
             .await?;
+
+        self.state.status_bar.as_ref().unwrap().finish_and_clear();
 
         summary.skipped += already_downloaded;
 
