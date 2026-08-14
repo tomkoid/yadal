@@ -19,3 +19,4 @@ tidlers = { git = "https://codeberg.org/tomkoid/tidlers", rev = "5d2a4609" }
 directories = "5.0"
 dirs = "6.0.0"
 reqwest = { version = "0.13.4", features = ["stream"] }
+which = "8.0.5"
