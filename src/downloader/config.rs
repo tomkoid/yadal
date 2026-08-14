@@ -11,4 +11,6 @@ pub struct DownloaderConfig {
     pub max_parallel: usize,
     pub force_download: bool,
     pub output_path: PathBuf,
+    pub skip_tag: bool,
+    pub skip_transcode: bool,
 }

@@ -63,6 +63,16 @@ async fn main() -> Result<()> {
         None => prepare_output_directory().context("Failed to prepare output directory")?,
     };
 
+    // check if ffmpeg is available for transcoding
+    let can_transcode = which::which("ffmpeg").is_ok();
+    let skip_transcode = cli.skip_transcode || !can_transcode;
+
+    if !can_transcode && !cli.skip_transcode {
+        eprintln!(
+            "warning: ffmpeg not found, skipping transcoding. Install ffmpeg to enable transcoding.\n"
+        );
+    }
+
     // this is not necessarilly needed right now but will be used if a config file is added
     let options = DownloaderConfig {
         media_type,
@@ -70,6 +80,8 @@ async fn main() -> Result<()> {
         audio_quality: cli.quality.into(),
         force_download: cli.force,
         max_parallel: cli.parallel,
+        skip_tag: cli.skip_tag,
+        skip_transcode,
     };
 
     println!("audio quality: {:?}", options.audio_quality);
