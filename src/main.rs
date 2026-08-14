@@ -6,7 +6,6 @@ use clap::Parser;
 mod args;
 mod auth;
 mod downloader;
-mod options;
 mod output;
 mod parser;
 mod types;
@@ -17,7 +16,7 @@ use types::MediaType;
 
 use crate::{
     args::{Cli, MediaTypeArg},
-    options::DownloaderOptions,
+    downloader::config::DownloaderConfig,
     output::prepare_output_directory,
     parser::parse_tidal_input,
 };
@@ -65,7 +64,7 @@ async fn main() -> Result<()> {
     };
 
     // this is not necessarilly needed right now but will be used if a config file is added
-    let options = DownloaderOptions {
+    let options = DownloaderConfig {
         media_type,
         output_path,
         audio_quality: cli.quality.into(),
@@ -78,7 +77,7 @@ async fn main() -> Result<()> {
     println!("output directory: {}\n", options.output_path.display());
 
     // create downloader
-    let downloader = Downloader::new(client, options);
+    let mut downloader = Downloader::new(client, options);
 
     // download based on type
     let summary = match media_type {

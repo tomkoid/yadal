@@ -5,7 +5,7 @@ use tidlers::client::models::playback::AudioQuality;
 use crate::types::MediaType;
 
 #[derive(Debug, Clone)]
-pub struct DownloaderOptions {
+pub struct DownloaderConfig {
     pub media_type: MediaType,
     pub audio_quality: AudioQuality,
     pub max_parallel: usize,

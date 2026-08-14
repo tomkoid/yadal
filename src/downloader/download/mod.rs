@@ -18,6 +18,7 @@ pub mod dash;
 pub mod json;
 pub mod parallel;
 
+#[derive(Debug, Clone)]
 pub struct QueuedTrack {
     pub track: Track,
     pub index: usize,

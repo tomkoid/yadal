@@ -1,6 +1,7 @@
-use std::path::Path;
+use std::{path::Path, time::Duration};
 
 use anyhow::{Context, Result};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use tidlers::client::models::track::{Track, config::TrackPlaybackInfoConfig};
 
 use crate::{
@@ -28,9 +29,9 @@ impl Downloader {
         println!("album: {}", track.album.as_ref().unwrap().title);
 
         if self
-            .find_existing_track_path(&self.options.output_path, &track, &MediaType::Track, None)
+            .find_existing_track_path(&self.config.output_path, &track, &MediaType::Track, None)
             .is_some()
-            && !self.options.force_download
+            && !self.config.force_download
         {
             eprintln!(
                 "skipping track (already exists in output directory, overwrite with --force)"
@@ -47,7 +48,7 @@ impl Downloader {
             .get_track_postpaywall_playback_info(
                 track_id.to_string(),
                 Some(TrackPlaybackInfoConfig {
-                    audio_quality: Some(self.options.audio_quality.clone()),
+                    audio_quality: Some(self.config.audio_quality.clone()),
                     ..Default::default()
                 }),
             )
@@ -75,7 +76,7 @@ impl Downloader {
         self.download_track_with_info_pb(DownloadTrackRequest {
             track: &track,
             playback_info: &playback_info,
-            output_path: &self.options.output_path,
+            output_path: &self.config.output_path,
             album_context,
             index: None,
             pb: Some(&pb),
@@ -89,13 +90,17 @@ impl Downloader {
         Ok(summary)
     }
 
-    pub async fn download_media(&self, id: &str, media_type: MediaType) -> Result<DownloadSummary> {
+    pub async fn download_media(
+        &mut self,
+        id: &str,
+        media_type: MediaType,
+    ) -> Result<DownloadSummary> {
         let (dir_name, album_tag_context) = self
             .resolve_media_dir_and_album_context(id, media_type)
             .await?;
 
         let target_dir = self
-            .options
+            .config
             .output_path
             .join(sanitize_filename::sanitize(dir_name));
         std::fs::create_dir_all(&target_dir).context("Failed to create media directory")?;
@@ -125,13 +130,21 @@ impl Downloader {
             return Ok(summary);
         }
 
+        // put tracks into downloader queue
+        self.state.queued = tracks_to_download.clone();
+
+        // prepare ui
+        let multi_progress = MultiProgress::new();
+
+        let status_bar = multi_progress.add(ProgressBar::hidden());
+        status_bar.set_style(ProgressStyle::default_bar().template("{msg}").unwrap());
+        status_bar.enable_steady_tick(Duration::from_millis(100));
+
+        self.state.multi_progress = Some(multi_progress);
+        self.state.status_bar = Some(status_bar);
+
         let mut summary = self
-            .download_tracks_parallel(
-                tracks_to_download,
-                &target_dir,
-                album_tag_context,
-                media_type,
-            )
+            .download_tracks_parallel(&target_dir, album_tag_context, media_type)
             .await?;
 
         summary.skipped += already_downloaded;
@@ -232,7 +245,7 @@ impl Downloader {
         let mut queued_tracks = Vec::new();
 
         for (index, track) in tracks.into_iter().enumerate() {
-            if !self.options.force_download
+            if !self.config.force_download
                 && self
                     .find_existing_track_path(target_dir, &track, &media_type, Some(index))
                     .is_some()
