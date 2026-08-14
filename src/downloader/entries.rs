@@ -123,10 +123,6 @@ impl Downloader {
                 failed: Vec::new(),
             };
 
-            if matches!(media_type, MediaType::Album) {
-                summary.print();
-            }
-
             return Ok(summary);
         }
 
