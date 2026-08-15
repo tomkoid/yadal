@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{ops::RangeInclusive, path::PathBuf};
 
 use clap::{Parser, ValueEnum};
 use directories::ProjectDirs;
@@ -10,7 +10,7 @@ fn default_session_file() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("session.json"))
 }
 
-#[derive(Parser)]
+#[derive(Debug, Parser)]
 #[command(name = "tidal-downloader")]
 #[command(author, version, about = "Download music from TIDAL", long_about = None)]
 pub struct Cli {
@@ -35,6 +35,10 @@ pub struct Cli {
     /// Output directory
     #[arg(short, long, default_value = None)]
     pub output: Option<PathBuf>,
+
+    /// Range (e.g., 1-10 for tracks 1 to 10, or 5 for track 5)
+    #[arg(short, long, value_parser = parse_range)]
+    pub range: Option<RangeInclusive<usize>>,
 
     /// Maximum parallel downloads
     #[arg(short, long, default_value = "5")]
@@ -77,7 +81,7 @@ pub enum QualityArg {
     HiRes,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, ValueEnum)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, ValueEnum)]
 pub enum MediaTypeArg {
     Auto,
     Track,
@@ -94,4 +98,26 @@ impl From<QualityArg> for AudioQuality {
             QualityArg::HiRes => AudioQuality::HiRes,
         }
     }
+}
+fn parse_range(s: &str) -> Result<RangeInclusive<usize>, String> {
+    let parts: Vec<&str> = s.split('-').collect();
+    if parts.len() != 2 {
+        return Err("Range must be in the format 'start-end' (e.g., 1-10)".to_string());
+    }
+
+    let start = parts[0]
+        .parse::<usize>()
+        .map_err(|_| format!("Invalid start integer: '{}'", parts[0]))?;
+    let end = parts[1]
+        .parse::<usize>()
+        .map_err(|_| format!("Invalid end integer: '{}'", parts[1]))?;
+
+    if start > end {
+        return Err(format!(
+            "Start ({}) cannot be greater than end ({})",
+            start, end
+        ));
+    }
+
+    Ok(start..=end)
 }

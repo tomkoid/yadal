@@ -13,6 +13,7 @@ This project serves as a practical showcase of [Tidlers](https://codeberg.org/to
 - Download tracks, albums, and playlists from TIDAL in 24-bit, 192kHz
 - Download multiple albums at once
 - Support for multiple audio quality levels: low, high, lossless, and hi-res
+- Download range of tracks from an album or playlist (`--range`)
 - Parallel downloads
 - Works on Linux, macOS, and Windows (likely even more if you would want to)
 - Progress indicators for downloads

@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{ops::RangeInclusive, path::PathBuf};
 
 use tidlers::client::models::playback::AudioQuality;
 
@@ -11,4 +11,5 @@ pub struct DownloaderConfig {
     pub skip_tag: bool,
     pub skip_transcode: bool,
     pub lyrics: bool,
+    pub range: Option<RangeInclusive<usize>>,
 }

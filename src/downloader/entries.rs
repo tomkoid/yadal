@@ -243,6 +243,13 @@ impl Downloader {
         let mut queued_tracks = Vec::new();
 
         for (index, track) in tracks.into_iter().enumerate() {
+            // handle range filtering if specified
+            if let Some(range) = &self.config.range
+                && !range.contains(&(index + 1))
+            {
+                continue;
+            }
+
             if !self.config.force_download
                 && self
                     .find_existing_track_path(target_dir, &track, &media_type, Some(index))
