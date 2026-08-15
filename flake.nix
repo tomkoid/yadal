@@ -26,13 +26,7 @@
 
           src = lib.cleanSource ./.;
 
-          cargoLock = {
-            lockFile = ./Cargo.lock;
-            outputHashes = {
-              "tidlers-0.5.0" = "sha256-FDiNYTZJH3hkJwil+38v0eorr7YTPfdP3VrIXDAomY8=";
-              "multitag-0.4.3" = "sha256-FGnUDhs8vGig+S9403LViNauRO9PK7gaO57Df9EZMaY=";
-            };
-          };
+          cargoHash = "sha256-XV5crj3ngXtWcsN4IFUoh3qER2iFAdXjiJjg2Z5ogbE=";
 
           nativeBuildInputs = [ pkgs.makeBinaryWrapper ];
 
