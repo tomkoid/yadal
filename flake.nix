@@ -15,7 +15,9 @@
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        pkgs = import nixpkgs {
+          inherit system;
+        };
         lib = pkgs.lib;
       in
       {
@@ -27,7 +29,7 @@
           cargoLock = {
             lockFile = ./Cargo.lock;
             outputHashes = {
-              "tidlers-0.5.0" = "sha256-yH0hMT3kGIhCe0DkLuME5yZCy7pTsfS9qcJ9YWijHUo=";
+              "tidlers-0.5.0" = "sha256-FDiNYTZJH3hkJwil+38v0eorr7YTPfdP3VrIXDAomY8=";
               "multitag-0.4.3" = "sha256-FGnUDhs8vGig+S9403LViNauRO9PK7gaO57Df9EZMaY=";
             };
           };
