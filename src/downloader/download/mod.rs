@@ -72,7 +72,26 @@ impl Downloader {
         };
 
         if !self.config.skip_tag {
-            let tag_metadata = TrackTagMetadata::from_track(request.track, request.album_context);
+            let mut tag_metadata =
+                TrackTagMetadata::from_track(request.track, request.album_context);
+
+            // handle lyrics
+            if self.config.lyrics {
+                let lyrics_res = self
+                    .tidal_client
+                    .get_track_lyrics(request.track.id.to_string())
+                    .await;
+
+                if let Ok(lyrics_res) = lyrics_res {
+                    let lyrics = match lyrics_res.subtitles {
+                        Some(subs) => subs,
+                        None => lyrics_res.lyrics,
+                    };
+
+                    tag_metadata.lyrics = Some(lyrics);
+                }
+            }
+
             self.tag_downloaded_file(&output_path, &tag_metadata)
                 .await
                 .context("Failed to tag downloaded file")?;

@@ -52,6 +52,10 @@ pub struct Cli {
     #[arg(short, long)]
     pub force: bool,
 
+    /// Add lyrics to the downloaded files (if available)
+    #[arg(short, long)]
+    pub lyrics: bool,
+
     /// Skip tagging
     #[arg(short, long)]
     pub skip_tag: bool,

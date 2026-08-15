@@ -10,4 +10,5 @@ pub struct DownloaderConfig {
     pub output_path: PathBuf,
     pub skip_tag: bool,
     pub skip_transcode: bool,
+    pub lyrics: bool,
 }

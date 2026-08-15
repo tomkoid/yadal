@@ -72,6 +72,7 @@ async fn main() -> Result<()> {
         audio_quality: cli.quality.into(),
         force_download: cli.force,
         max_parallel: cli.parallel,
+        lyrics: cli.lyrics,
         skip_tag: cli.skip_tag,
         skip_transcode,
     };

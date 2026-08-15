@@ -19,6 +19,7 @@ pub struct TrackTagMetadata {
     pub album_artist: Option<String>,
     pub release_date: Option<String>,
     pub cover_url: Option<String>,
+    pub lyrics: Option<String>,
 }
 
 impl AlbumTagContext {
@@ -91,6 +92,7 @@ impl TrackTagMetadata {
             album_artist,
             release_date,
             cover_url,
+            lyrics: None,
         }
     }
 }

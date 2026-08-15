@@ -108,6 +108,10 @@ impl Downloader {
             }
         }
 
+        if let Some(lyrics) = metadata.lyrics.as_deref() {
+            tag.set_lyrics(lyrics);
+        }
+
         file.rewind()
             .context("Failed to rewind file before writing tags")?;
 
