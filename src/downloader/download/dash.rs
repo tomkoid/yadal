@@ -5,6 +5,7 @@ use anyhow::{Context, Result};
 use bytes::Bytes;
 use futures::{StreamExt, stream};
 use indicatif::{ProgressBar, ProgressStyle};
+use reqwest::{StatusCode, header};
 use tidlers::client::models::track::playback::DashManifest;
 
 impl Downloader {
@@ -26,7 +27,7 @@ impl Downloader {
             );
         }
 
-        // Step 1: Download initialization segment (required for DASH)
+        // download initialization segment for dash
         let init_data = if let Some(init_url) = dash.get_init_url() {
             if let Some(pb) = pb {
                 pb.set_message(format!("{track_title}: Downloading init segment..."));
@@ -41,113 +42,102 @@ impl Downloader {
             anyhow::bail!("No initialization segment found");
         };
 
-        // Step 2: Download segments with adaptive discovery
-        // We'll download in batches and stop when we hit consecutive failures
+        // discover segment count so progress total is accurate
+        let total_segments = self
+            .estimate_dash_total_segments(dash, track_title, pb)
+            .await;
+        if total_segments == 0 {
+            anyhow::bail!("No downloadable DASH segments found");
+        }
+
+        if let Some(pb) = pb {
+            pb.set_length(total_segments as u64);
+            pb.set_position(0);
+        }
+
+        // download all segments using the discovered total
         let mut all_segments: Vec<(u32, Bytes)> = Vec::new();
         let mut segment_num = 1;
-        let batch_size = 50; // Download 50 segments at a time
+        let batch_size = 50; // 50 segments at a time
 
-        loop {
-            // Prepare batch of segment URLs
+        while segment_num <= total_segments {
+            let batch_end = (segment_num + batch_size - 1).min(total_segments);
+
+            // prepare batch of segment URLs
             let mut batch_urls = Vec::new();
-            for i in 0..batch_size {
-                if let Some(url) = dash.get_segment_url(segment_num + i) {
-                    batch_urls.push((segment_num + i, url));
-                } else {
-                    break;
-                }
-            }
-
-            if batch_urls.is_empty() {
-                break;
+            for current_num in segment_num..=batch_end {
+                let Some(url) = dash.get_segment_url(current_num) else {
+                    anyhow::bail!("Missing segment URL for segment {current_num}");
+                };
+                batch_urls.push((current_num, url));
             }
 
             if let Some(pb) = pb {
-                let known_total = (segment_num - 1) as u64 + batch_urls.len() as u64;
-                if pb.length().unwrap_or(0) < known_total {
-                    pb.set_length(known_total);
-                }
                 pb.set_message(format!(
                     "{track_title}: Downloading segments {}-{}...",
-                    segment_num,
-                    segment_num + batch_urls.len() as u32 - 1
+                    segment_num, batch_end
                 ));
             }
 
-            // Download batch in parallel
+            // download batch in parallel
             let batch_results = stream::iter(batch_urls)
                 .map(|(num, url)| async move {
-                    match self.download_segment(&url).await {
-                        Ok(data) => Ok((num, data)),
-                        Err(e) => Err((num, e)),
+                    const SEGMENT_RETRIES: u32 = 3;
+                    for attempt in 1..=SEGMENT_RETRIES {
+                        match self.download_segment(&url).await {
+                            Ok(data) => return Ok((num, data)),
+                            Err(e) => {
+                                if attempt == SEGMENT_RETRIES {
+                                    return Err((num, e));
+                                }
+
+                                let backoff_ms = 150 * attempt;
+                                tokio::time::sleep(std::time::Duration::from_millis(
+                                    backoff_ms.into(),
+                                ))
+                                .await;
+                            }
+                        }
                     }
+                    unreachable!("segment retry loop must return");
                 })
                 .buffer_unordered(20)
                 .collect::<Vec<_>>()
                 .await;
 
-            // Check results
-            const MAX_CONSECUTIVE_FAILURES: u32 = 1000;
-            let mut consecutive_failures = 0;
+            // Check results.
             let mut batch_segments = Vec::new();
 
             for result in batch_results {
                 match result {
                     Ok((num, data)) => {
                         batch_segments.push((num, data));
-                        consecutive_failures = 0;
                         if let Some(pb) = pb {
                             pb.inc(1);
                             pb.set_message(format!("{track_title}: Downloaded segment {}", num));
                         }
                     }
-                    Err(_) => {
-                        consecutive_failures += 1;
-                        if consecutive_failures >= MAX_CONSECUTIVE_FAILURES {
-                            if let Some(pb) = pb {
-                                pb.set_message(format!(
-                                    "{track_title}: Downloading FAILED on segment {segment_num}, failures: {consecutive_failures}/{MAX_CONSECUTIVE_FAILURES}",
-                                ));
-                            }
-                            return Err(anyhow::anyhow!(
-                                "Failed to download segment {segment_num} after {consecutive_failures} consecutive failures"
-                            ));
-                            // break;
-                        }
-
+                    Err((num, e)) => {
                         if let Some(pb) = pb {
                             pb.set_message(format!(
-                                "{track_title}: Downloading segment {segment_num}, failures: {consecutive_failures}/{MAX_CONSECUTIVE_FAILURES}",
+                                "{track_title}: Failed to download segment {}",
+                                num
                             ));
                         }
-
-                        tokio::time::sleep(std::time::Duration::from_millis(40)).await;
+                        return Err(anyhow::anyhow!("Failed to download segment {num}: {e:#}"));
                     }
                 }
             }
 
-            // If we got no segments in this batch, we're done
-            if batch_segments.is_empty() {
-                break;
-            }
-
             all_segments.extend(batch_segments);
-            segment_num += batch_size;
-
-            // Stop if we hit too many failures
-            if consecutive_failures >= MAX_CONSECUTIVE_FAILURES {
-                break;
-            }
+            segment_num = batch_end + 1;
         }
 
         if let Some(pb) = pb {
-            let downloaded_segments = pb.position();
-            pb.set_length(downloaded_segments.max(1));
-            pb.set_position(downloaded_segments);
             pb.set_message(format!("{track_title}: Combining segments..."));
         }
 
-        // Step 3: Sort and combine
+        // sort and combine
         all_segments.sort_by_key(|(num, _)| *num);
 
         let total_size = init_data.len()
@@ -166,7 +156,6 @@ impl Downloader {
             pb.set_message(format!("{track_title}: Writing to disk..."));
         }
 
-        // Write to file
         std::fs::write(output_path, combined_data).context("Failed to write file")?;
 
         if let Some(pb) = pb {
@@ -189,5 +178,91 @@ impl Downloader {
         }
 
         response.bytes().await.context("Failed to read bytes")
+    }
+
+    async fn estimate_dash_total_segments(
+        &self,
+        dash: &DashManifest,
+        track_title: &str,
+        pb: Option<&ProgressBar>,
+    ) -> u32 {
+        const MAX_SEGMENT_PROBE: u32 = 20_000;
+
+        if let Some(pb) = pb {
+            pb.set_message(format!("{track_title}: Discovering total segments..."));
+        }
+
+        if !self.segment_exists(dash, 1).await {
+            return 0;
+        }
+
+        let mut low = 1_u32;
+        let mut high = 2_u32;
+
+        while high < MAX_SEGMENT_PROBE && self.segment_exists(dash, high).await {
+            low = high;
+            high = (high.saturating_mul(2)).min(MAX_SEGMENT_PROBE);
+        }
+
+        if high <= low {
+            return low;
+        }
+
+        let mut left = low + 1;
+        let mut right = high;
+
+        while left <= right {
+            let mid = left + (right - left) / 2;
+            if self.segment_exists(dash, mid).await {
+                low = mid;
+                left = mid + 1;
+            } else if mid == 0 {
+                break;
+            } else {
+                right = mid - 1;
+            }
+        }
+
+        low
+    }
+
+    async fn segment_exists(&self, dash: &DashManifest, segment_num: u32) -> bool {
+        let Some(url) = dash.get_segment_url(segment_num) else {
+            return false;
+        };
+
+        self.segment_url_exists(&url).await
+    }
+
+    async fn segment_url_exists(&self, url: &str) -> bool {
+        let head_res = self
+            .http_client
+            .head(url)
+            .timeout(std::time::Duration::from_secs(10))
+            .send()
+            .await;
+
+        match head_res {
+            Ok(resp) if resp.status().is_success() => return true,
+            Ok(resp)
+                if resp.status() == StatusCode::NOT_FOUND || resp.status() == StatusCode::GONE =>
+            {
+                return false;
+            }
+            _ => {}
+        }
+
+        let get_res = self
+            .http_client
+            .get(url)
+            .header(header::RANGE, "bytes=0-0")
+            .timeout(std::time::Duration::from_secs(15))
+            .send()
+            .await;
+
+        match get_res {
+            Ok(resp) => resp.status().is_success() || resp.status() == StatusCode::PARTIAL_CONTENT,
+            Err(_) => false,
+        }
     }
 }
