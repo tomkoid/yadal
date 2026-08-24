@@ -6,38 +6,10 @@ use tidlers::{auth::init::TidalAuth, client::TidalClient};
 pub async fn load_or_authenticate(session_file: &Path, use_oauth2: bool) -> Result<TidalClient> {
     // try to load existing session
     if session_file.exists() {
-        match std::fs::read_to_string(session_file) {
-            Ok(session_data) => {
-                match TidalClient::from_json(&session_data) {
-                    Ok(mut client) => {
-                        println!("loading session from {}...", session_file.display());
-
-                        // try to refresh token
-                        match client.refresh_access_token(false).await {
-                            Ok(refreshed) => {
-                                if refreshed {
-                                    println!("token refreshed successfully\n");
-                                    save_session(&client, session_file)?;
-                                } else {
-                                    println!("using existing session\n");
-                                }
-                                return Ok(client);
-                            }
-                            Err(e) => {
-                                println!("failed to refresh token: {}", e);
-                                println!("re-authenticating...\n");
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        println!("failed to parse session: {}", e);
-                        println!("re-authenticating...\n");
-                    }
-                }
-            }
+        match load_and_refresh_session(session_file).await {
+            Ok(client) => return Ok(client),
             Err(e) => {
-                println!("failed to read session file: {}", e);
-                println!("authenticating...\n");
+                println!("failed to load session ({}), re-authenticating...\n", e);
             }
         }
     } else {
@@ -45,6 +17,25 @@ pub async fn load_or_authenticate(session_file: &Path, use_oauth2: bool) -> Resu
     }
 
     authenticate(session_file, use_oauth2).await
+}
+
+async fn load_and_refresh_session(
+    session_file: &Path,
+) -> Result<TidalClient, Box<dyn std::error::Error>> {
+    println!("loading session from {}...", session_file.display());
+
+    let session_data = std::fs::read_to_string(session_file)?;
+    let mut client = TidalClient::from_json(&session_data)?;
+
+    let refreshed = client.refresh_access_token(false).await?;
+    if refreshed {
+        println!("token refreshed successfully\n");
+        save_session(&client, session_file)?;
+    } else {
+        println!("using existing session\n");
+    }
+
+    Ok(client)
 }
 
 pub async fn authenticate(session_file: &Path, use_oauth2: bool) -> Result<TidalClient> {
