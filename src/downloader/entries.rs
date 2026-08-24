@@ -43,6 +43,8 @@ impl Downloader {
             });
         }
 
+        self.check_allow_streaming(&track)?;
+
         let playback_info = self
             .tidal_client
             .get_track_postpaywall_playback_info(

@@ -56,6 +56,10 @@ pub struct Cli {
     #[arg(short, long)]
     pub force: bool,
 
+    /// Skip checking if the stream is available before downloading
+    #[arg(long)]
+    pub no_stream_check: bool,
+
     /// Add lyrics to the downloaded files (if available)
     #[arg(short, long)]
     pub lyrics: bool,

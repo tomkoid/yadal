@@ -77,6 +77,19 @@ impl Downloader {
                                 .await
                         };
 
+                        if let Err(e) = self.check_allow_streaming(&track) {
+                            pb.finish_with_message(format!(
+                                "✗ {} (attempt {}/{}, streaming not allowed, skipping...)",
+                                track.title,
+                                attempt + 1,
+                                max_attempts
+                            ));
+                            return (
+                                track.title,
+                                Err(e).context("Streaming not allowed for this track"),
+                            );
+                        }
+
                         match result {
                             Ok(playback_info) => {
                                 rate_limit_state.on_success().await;

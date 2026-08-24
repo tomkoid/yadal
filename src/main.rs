@@ -71,6 +71,7 @@ async fn main() -> Result<()> {
         output_path,
         audio_quality: cli.quality.into(),
         force_download: cli.force,
+        no_stream_check: cli.no_stream_check,
         max_parallel: cli.parallel,
         lyrics: cli.lyrics,
         range: cli.range,
