@@ -21,3 +21,5 @@ dirs = "6.0.0"
 reqwest = { version = "0.13.4", features = ["stream"] }
 which = "8.0.5"
 crossterm = "0.29.0"
+toml = "1.1.4"
+serde = "1.0.229"

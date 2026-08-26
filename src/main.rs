@@ -5,6 +5,7 @@ use clap::Parser;
 
 mod args;
 mod auth;
+mod config;
 mod downloader;
 mod output;
 mod parser;
@@ -16,6 +17,7 @@ use types::MediaType;
 
 use crate::{
     args::{Cli, MediaTypeArg},
+    config::FileConfig,
     downloader::{config::DownloaderConfig, ui::summary::DownloadSummary},
     output::prepare_output_directory,
     parser::parse_id_input,
@@ -65,6 +67,9 @@ async fn main() -> Result<()> {
             "warning: ffmpeg not found, skipping transcoding. Install ffmpeg to enable transcoding.\n"
         );
     }
+
+    // get config from file
+    let config = FileConfig::try_new();
 
     // this is not necessarilly needed right now but will be used if a config file is added
     let options = DownloaderConfig {
