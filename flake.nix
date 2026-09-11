@@ -26,7 +26,7 @@
 
           src = lib.cleanSource ./.;
 
-          cargoHash = "sha256-XV5crj3ngXtWcsN4IFUoh3qER2iFAdXjiJjg2Z5ogbE=";
+          cargoHash = "sha256-wcvKlWHtGNIMw+GV6CqW7zXPKBwoySZtdgfzTamRSpI=";
 
           nativeBuildInputs = [ pkgs.makeBinaryWrapper ];
 
