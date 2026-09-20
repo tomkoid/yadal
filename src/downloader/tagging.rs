@@ -112,6 +112,12 @@ impl Downloader {
             tag.set_lyrics(lyrics);
         }
 
+        if let Some(bpm) = metadata.bpm {
+            tag.set_bpm(bpm.round() as u16).unwrap_or_else(|e| {
+                eprintln!("warning: failed to set BPM for {}: {}", metadata.title, e);
+            });
+        }
+
         file.rewind()
             .context("Failed to rewind file before writing tags")?;
 
