@@ -21,6 +21,8 @@ pub struct TrackTagMetadata {
     pub cover_url: Option<String>,
     pub lyrics: Option<String>,
     pub bpm: Option<f32>,
+    pub key: Option<String>,
+    pub key_scale: Option<String>,
 }
 
 impl AlbumTagContext {
@@ -95,6 +97,8 @@ impl TrackTagMetadata {
             cover_url,
             lyrics: None,
             bpm: track.bpm,
+            key: track.key.clone(),
+            key_scale: track.key_scale.clone(),
         }
     }
 }

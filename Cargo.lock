@@ -929,7 +929,7 @@ dependencies = [
 [[package]]
 name = "id3"
 version = "1.17.1"
-source = "git+https://codeberg.org/tomkoid/rust-id3.git?rev=ba9fb66af8c83201b11c2846c149e54b06235c26#ba9fb66af8c83201b11c2846c149e54b06235c26"
+source = "git+https://codeberg.org/tomkoid/rust-id3.git#dec676d19544b366cedfbb38406c03f877b3cfd3"
 dependencies = [
  "bitflags",
  "byteorder",
@@ -1220,7 +1220,7 @@ checksum = "453e991b2efe96c288cbc2d03a19e353504294559ecb6c03067fff5bd824616d"
 [[package]]
 name = "multitag"
 version = "0.4.3"
-source = "git+https://github.com/tomkoid/multitag#36d087cfdb27ff809959bd54409057ed42d8cfc6"
+source = "git+https://github.com/tomkoid/multitag#bbfb14f1e34ef670553bac5eea67f853e56d655c"
 dependencies = [
  "id3",
  "metaflac",
@@ -2512,7 +2512,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]

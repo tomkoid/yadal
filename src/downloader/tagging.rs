@@ -118,6 +118,24 @@ impl Downloader {
             });
         }
 
+        if let Some(key) = metadata.key.as_deref()
+            && let Some(key_scale) = metadata.key_scale.as_deref()
+        {
+            let key_scale = match key_scale.to_lowercase().as_str() {
+                "major" => "", // no need to append anything for major keys
+                "minor" => "m",
+                _ => {
+                    eprintln!(
+                        "warning: unrecognized key scale '{}' for {}. Using original value.",
+                        key_scale, metadata.title
+                    );
+                    key_scale
+                }
+            };
+            let musical_key = format!("{}{}", key, key_scale.to_lowercase());
+            tag.set_key(&musical_key);
+        }
+
         file.rewind()
             .context("Failed to rewind file before writing tags")?;
 
