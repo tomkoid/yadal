@@ -52,6 +52,10 @@ pub struct Cli {
     #[arg(long)]
     pub oauth2: bool,
 
+    /// Enable tracing logs from Tidlers
+    #[arg(long)]
+    pub trace: bool,
+
     /// Redownload even if matching local file exists
     #[arg(short, long)]
     pub force: bool,

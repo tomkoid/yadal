@@ -8,6 +8,7 @@ mod auth;
 mod downloader;
 mod output;
 mod parser;
+mod tracing;
 mod types;
 
 use auth::{authenticate, load_or_authenticate};
@@ -24,6 +25,9 @@ use crate::{
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
+    if cli.trace {
+        tracing::configure();
+    }
 
     // authenticate
     let mut client = if cli.reauth {
