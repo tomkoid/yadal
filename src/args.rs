@@ -99,7 +99,7 @@ impl From<QualityArg> for AudioQuality {
             QualityArg::Low => AudioQuality::Low,
             QualityArg::High => AudioQuality::High,
             QualityArg::Lossless => AudioQuality::Lossless,
-            QualityArg::HiRes => AudioQuality::HiRes,
+            QualityArg::HiRes => AudioQuality::HiResLossless,
         }
     }
 }
