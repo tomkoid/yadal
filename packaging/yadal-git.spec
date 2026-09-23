@@ -1,17 +1,14 @@
 %global repo https://codeberg.org/tomkoid/yadal
 %global branch main
-%global commit %(git ls-remote %{repo}.git refs/heads/%{branch} | awk '{print $1}')
-%global shortcommit %(echo %{commit} | cut -c1-7)
-%global snapshot_date %(date -u +%Y%m%d)
 
 Name:           yadal-git
-Version:        0.3.0^git%{snapshot_date}.g%{shortcommit}
-Release:        1%{?dist}
+Version:        0.3.0
+Release:        1.git%{?dist}
 Summary:        Command-line TIDAL music downloader
 
 License:        GPL-3.0-only
 URL:            %{repo}
-Source0:        %{repo}/archive/%{commit}.tar.gz
+Source0:        %{repo}/archive/%{branch}.tar.gz
 
 BuildRequires:  cargo
 BuildRequires:  rust-packaging
@@ -39,5 +36,5 @@ install -Dpm0755 target/rpm/yadal %{buildroot}%{_bindir}/yadal
 %{_bindir}/yadal
 
 %changelog
-* Wed Sep 23 2026 Tomkoid <tomkoid@tomkoid.cz> - 0.3.0^git%{snapshot_date}.g%{shortcommit}-1
+* Wed Sep 23 2026 Tomkoid <tomkoid@tomkoid.cz> - 0.3.0-1.git
 - Initial main branch snapshot package
