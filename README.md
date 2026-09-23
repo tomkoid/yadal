@@ -19,9 +19,34 @@ This project serves as a practical showcase of [Tidlers](https://codeberg.org/to
 - Progress indicators for downloads
 - Tags downloaded audio with TIDAL metadata (title, artist, album, cover art)
 
-## Installation (Linux/macOS)
+## Installation (Linux)
 
-To install Yadal, you need to have Rust installed. You can install Rust using [rustup](https://rustup.rs/).
+### Arch Linux/Arch based distributions
+
+```bash
+yay -S yadal-git
+```
+
+### Fedora
+
+```bash
+sudo dnf copr enable tomkoid/yadal
+sudo dnf install yadal
+```
+
+### NixOS
+
+You can install Yadal using the Nix package manager to your profile like this:
+
+```bash
+nix profile install github:tomkoid/yadal
+```
+
+Or you can install it system-wide like any other flake using the `flake.nix`.
+
+### From source (Linux, macOS, Windows)
+
+To build and install Yadal, you need to have Rust installed. You can install Rust using [rustup](https://rustup.rs/).
 
 Also, Yadal for now depends on `ffmpeg` when downloading lossless or hi-res audio. Make sure you have `ffmpeg` installed and available in your PATH.
 
