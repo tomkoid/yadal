@@ -1,9 +1,10 @@
 %global repo https://codeberg.org/tomkoid/yadal
 %global branch main
+%global version 0.3.0^git%(git rev-parse --short HEAD 2>/dev/null || date -u +%%Y%%m%%d)
 
 Name:           yadal-git
-Version:        0.3.0
-Release:        1.git%{?dist}
+Version:        %{version}
+Release:        1%{?dist}
 Summary:        Command-line TIDAL music downloader
 
 License:        GPL-3.0-only
