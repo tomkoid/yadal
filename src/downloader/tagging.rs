@@ -49,7 +49,10 @@ impl Downloader {
             }
         };
 
+        // title
         tag.set_title(&metadata.title);
+
+        // track number
         match tag.set_track_number(metadata.track_number) {
             Ok(_) => {}
             Err(e) => {
@@ -60,12 +63,14 @@ impl Downloader {
             }
         }
 
+        // artists
         if metadata.artists.len() == 1 {
             tag.set_artist(&metadata.artists[0]);
         } else if !metadata.artists.is_empty() {
             tag.set_artists(metadata.artists.clone());
         }
 
+        // cover
         let cover = match metadata.cover_url.as_deref() {
             Some(url) => match self.fetch_cover_picture(url).await {
                 Ok(picture) => Some(picture),
@@ -80,6 +85,7 @@ impl Downloader {
             None => None,
         };
 
+        // album info
         let has_album_info =
             metadata.album_title.is_some() || metadata.album_artist.is_some() || cover.is_some();
         if has_album_info
@@ -96,6 +102,7 @@ impl Downloader {
             ));
         }
 
+        // release date
         if let Some(date) = metadata.release_date.as_deref() {
             match Timestamp::from_str(date) {
                 Ok(timestamp) => tag.set_date(timestamp),
@@ -108,16 +115,19 @@ impl Downloader {
             }
         }
 
+        // lyrics
         if let Some(lyrics) = metadata.lyrics.as_deref() {
             tag.set_lyrics(lyrics);
         }
 
+        // bpm
         if let Some(bpm) = metadata.bpm {
             tag.set_bpm(bpm.round() as u16).unwrap_or_else(|e| {
                 eprintln!("warning: failed to set BPM for {}: {}", metadata.title, e);
             });
         }
 
+        // key
         if let Some(key) = metadata.key.as_deref()
             && let Some(key_scale) = metadata.key_scale.as_deref()
         {
