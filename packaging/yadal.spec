@@ -10,7 +10,7 @@ Source0:        https://codeberg.org/tomkoid/yadal/archive/main.tar.gz
 BuildRequires:  cargo
 BuildRequires:  rust-packaging
 BuildRequires:  rustc
-Requires:       ffmpeg-free
+Requires:       /usr/bin/ffmpeg
 
 %description
 Yadal (Yet Another Downloader for TIDAL) is a command-line tool for
