@@ -15,9 +15,12 @@ impl Target {
 ///
 /// Supports:
 /// - https://tidal.com/track/437468401/u
+/// - https://tidal.com/track/437468401?u
 /// - https://tidal.com/track/437468401
 /// - https://tidal.com/album/55130630/u
+/// - https://tidal.com/album/55130630?u
 /// - https://tidal.com/album/55130630
+/// - https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d?u
 /// - https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d
 /// - Raw IDs: 437468401, 55130630, aa692128-2954-4fe1-b5a1-4ede1add485d
 pub fn parse_id_input(input: &str) -> Vec<Target> {
@@ -61,7 +64,11 @@ pub fn parse_id_input(input: &str) -> Vec<Target> {
 }
 
 pub fn parse_tidal_url(url: &str) -> Option<(String, MediaType)> {
-    // Remove trailing /u if present
+    // Not technically needed (TIDAL links don't have a hashtag usually), but nothing is lost by adding it
+    let url = url.split('#').next().unwrap_or(url);
+
+    // Remove universal link marker(s)
+    let url = url.split('?').next().unwrap_or(url); // ?u
     let url = url.trim_end_matches("/u").trim_end_matches('/');
 
     // Split by '/'
@@ -102,8 +109,17 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_track_url_with_u() {
+    fn test_parse_track_url_with_universal_marker_slash() {
         let targets = parse_id_input("https://tidal.com/track/437468401/u");
+        assert_eq!(targets.len(), 1);
+        let target = &targets[0];
+        assert_eq!(target.id, "437468401");
+        assert!(matches!(target.media_type, MediaType::Track));
+    }
+
+    #[test]
+    fn test_parse_track_url_with_universal_marker_question_mark() {
+        let targets = parse_id_input("https://tidal.com/track/437468401?u");
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "437468401");
@@ -120,8 +136,35 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_album_url_with_universal_marker_slash() {
+        let targets = parse_id_input("https://tidal.com/album/55130630/u");
+        assert_eq!(targets.len(), 1);
+        let target = &targets[0];
+        assert_eq!(target.id, "55130630");
+        assert!(matches!(target.media_type, MediaType::Album));
+    }
+
+    #[test]
+    fn test_parse_album_url_with_universal_marker_question_mark() {
+        let targets = parse_id_input("https://tidal.com/album/55130630?u");
+        assert_eq!(targets.len(), 1);
+        let target = &targets[0];
+        assert_eq!(target.id, "55130630");
+        assert!(matches!(target.media_type, MediaType::Album));
+    }
+
+    #[test]
     fn test_parse_playlist_url() {
         let targets = parse_id_input("https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d");
+        assert_eq!(targets.len(), 1);
+        let target = &targets[0];
+        assert_eq!(target.id, "aa692128-2954-4fe1-b5a1-4ede1add485d");
+        assert!(matches!(target.media_type, MediaType::Playlist));
+    }
+
+    #[test]
+    fn test_parse_playlist_url_with_universal_marker_question_mark() {
+        let targets = parse_id_input("https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d?u");
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "aa692128-2954-4fe1-b5a1-4ede1add485d");
