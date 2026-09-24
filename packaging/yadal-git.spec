@@ -1,6 +1,6 @@
 %global repo https://codeberg.org/tomkoid/yadal
 %global branch main
-%global version 0.3.0^git%(git rev-parse --short HEAD 2>/dev/null || date -u +%%Y%%m%%d)
+%global version {{{ git_dir_version }}}
 
 Name:           yadal-git
 Version:        %{version}
@@ -26,6 +26,10 @@ indicators, and tagging downloaded audio with TIDAL metadata.
 %autosetup -n yadal
 
 %build
+rm -rf target
+unset RUSTC_PROVIDER RUSTC_WRAPPER RUSTC_WORKSPACE_WRAPPER
+export CARGO_BUILD_RUSTC_WRAPPER= CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER=
+export RUSTC=/usr/bin/rustc
 %cargo_build
 
 %install
