@@ -25,3 +25,4 @@ reqwest = { version = "0.13.4", features = ["stream"] }
 which = "8.0.5"
 crossterm = "0.29.0"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+symphonia = { version = "0.6.1", default-features = false, features = ["isomp4"] }

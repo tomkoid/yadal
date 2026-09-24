@@ -1,18 +1,23 @@
 use std::{
-    io::{Read, Seek},
+    io::{BufWriter, Read, Seek, Write},
+    fs::File,
     path::{Path, PathBuf},
 };
 
 use crate::{downloader::Downloader, types::MediaType};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use multitag::data::Picture;
 use reqwest::header::CONTENT_TYPE;
+use symphonia::core::codecs::CodecParameters;
+use symphonia::core::formats::probe::Hint;
+use symphonia::core::formats::{FormatOptions, TrackType};
+use symphonia::core::io::MediaSourceStream;
+use symphonia::core::meta::MetadataOptions;
 use tidlers::client::models::track::{
     Track,
     playback::{ManifestType, TrackPlaybackInfoResponse},
 };
-use tokio::process::Command;
 
 impl Downloader {
     pub async fn maybe_convert_flac_container(
@@ -36,38 +41,15 @@ impl Downloader {
         }
 
         let flac_path = output_path.with_extension("flac");
-        self.transcode_to_flac(output_path, &flac_path).await?;
+        let input = output_path.to_path_buf();
+        let output = flac_path.clone();
+
+        tokio::task::spawn_blocking(move || remux_mp4_flac_to_flac(&input, &output))
+            .await.context("remux task panicked")??;
+
         std::fs::remove_file(output_path)
             .with_context(|| format!("Failed to remove {}", output_path.display()))?;
         Ok(flac_path)
-    }
-
-    async fn transcode_to_flac(&self, input: &Path, output: &Path) -> Result<()> {
-        let status = Command::new("ffmpeg")
-            .arg("-hide_banner")
-            .arg("-loglevel")
-            .arg("error")
-            .arg("-y")
-            .arg("-i")
-            .arg(input)
-            .arg("-map_metadata")
-            .arg("-1")
-            .arg("-c:a")
-            .arg("flac")
-            .arg(output)
-            .status()
-            .await
-            .context("Failed to run ffmpeg for FLAC conversion")?;
-
-        if !status.success() {
-            anyhow::bail!(
-                "ffmpeg failed converting {} to {}",
-                input.display(),
-                output.display()
-            );
-        }
-
-        Ok(())
     }
 
     pub fn sniff_tag_extension(&self, file: &mut std::fs::File, declared: &str) -> Result<String> {
@@ -214,4 +196,67 @@ impl Downloader {
 
         Ok(())
     }
+}
+
+/// Remux MP4 wrapped FLAC frames to a FLAC file directly. \
+/// This function does not compute the SEEKTABLE block, which has a very small chance of ever being a problem for anyone ever.
+fn remux_mp4_flac_to_flac(input: &Path, output: &Path) -> Result<()> {
+    let file = File::open(input).with_context(|| format!("opening {}", input.display()))?;
+    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+
+    let mut hint = Hint::new();
+    hint.with_extension("m4a");
+
+    let mut format = symphonia::default::get_probe()
+        .probe(&hint, mss, FormatOptions::default(), MetadataOptions::default())
+        .context("error probing mp4 container")?;
+
+    let track = format
+        .default_track(TrackType::Audio)
+        .context("no audio track found in container")?;
+
+    let params = match track.codec_params.as_ref() {
+        Some(CodecParameters::Audio(params)) => params.clone(),
+        _ => bail!("track is not audio"),
+    };
+
+    let dfla = params
+        .extra_data
+        .as_ref()
+        .context("no FLAC extra data (dfLa box) found in mp4 track")?;
+
+    let streaminfo = if dfla.len() == 34 {
+        dfla.to_vec()
+    } else {
+        bail!("expected 34-byte STREAMINFO body, got {} bytes", dfla.len())
+    };
+
+    let out_file = File::create(output).with_context(|| format!("creating {}", output.display()))?;
+    let mut writer = BufWriter::new(out_file);
+
+    writer.write_all(b"fLaC")?;
+
+    let len = streaminfo.len() as u32;
+    let mut header = [0u8; 4];
+
+    header[0] = 0x80;
+    header[1] = ((len >> 16) & 0xFF) as u8;
+    header[2] = ((len >> 8) & 0xFF) as u8;
+    header[3] = (len & 0xFF) as u8;
+
+    writer.write_all(&header)?;
+    writer.write_all(&streaminfo)?;
+
+    let track_id = track.id;
+    while let Some(packet) = format.next_packet().context("reading mp4 packet")? {
+        if packet.track_id != track_id {
+            continue;
+        }
+
+        writer.write_all(packet.data.as_ref())?;
+    }
+
+    writer.flush()?;
+
+    Ok(())
 }
