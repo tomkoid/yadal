@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{fs::create_dir_all, path::PathBuf};
 
 use crate::args::QualityArg;
 
@@ -116,23 +116,23 @@ impl Default for Tags {
 }
 
 impl FileConfig {
-	pub fn try_new() -> Result<Self, Box<dyn std::error::Error>> {
+	pub fn try_new() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
 		let config = FileConfig::default();
 		config.get_config()
 	}
 
-	fn get_config(&self) -> Result<Self, Box<dyn std::error::Error>> {
-		let config_path = self.get_default_path();
+	fn get_config(&self) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+		let config_path = Self :: get_default_path();
 
 		// check if config file exists
 		if config_path.try_exists()? {
 			return self.load_from_file(&config_path);
 		} else {
-			return Ok(Self :: default());
+			return Ok(Self::default());
 		}
 	}
 
-	fn get_default_path(&self) -> PathBuf {
+	fn get_default_path() -> PathBuf {
 		let config_dir = dirs::config_dir();
 
 		if let Some(config_dir) = config_dir {
@@ -142,18 +142,36 @@ impl FileConfig {
 		}
 	}
 	//
-	fn load_from_file(&self, path: &PathBuf) -> Result<FileConfig, Box<dyn std::error::Error>> {
+	fn load_from_file(&self, path: &PathBuf) -> Result<FileConfig, Box<dyn std::error::Error + Send + Sync>> {
 		let config_str = std::fs::read_to_string(path)?;
 		let config: FileConfig = self.from_toml(&config_str)?;
 		Ok(config)
+	}
+
+	pub fn init_default_config() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+		let path = Self::get_default_path();
+
+		let parent_folder = if let Some(parent) = path.parent() {
+			parent
+		} else {
+			&path
+		};
+
+		if !parent_folder.try_exists()? {
+			create_dir_all(parent_folder)?;
+		}
+
+		let toml_str = toml::to_string(&Self::default())?;
+		std::fs::write(path, toml_str)?;
+		Ok(())
 	}
 
 	pub fn from_toml(&self, toml_str: &str) -> Result<Self, toml::de::Error> {
 		toml::from_str(toml_str)
 	}
 
-	pub fn parse_output_template(&self) -> &str {
-		"temporary value"
+	pub fn parse_output_template(&self) -> String {
+		"temporary value".into()
 	}
 }
 

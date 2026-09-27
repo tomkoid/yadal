@@ -31,6 +31,11 @@ async fn main() -> Result<()> {
         tracing::configure();
     }
 
+    if cli.init_config_file {
+        FileConfig::init_default_config().map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        return Ok(());
+    }
+
     // authenticate
     let mut client = if cli.reauth {
         println!("forcing re-authentication...\n");

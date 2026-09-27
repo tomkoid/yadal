@@ -14,6 +14,12 @@ fn default_session_file() -> PathBuf {
 #[command(name = "tidal-downloader")]
 #[command(author, version, about = "Download music from TIDAL", long_about = None)]
 pub struct Cli {
+    /// Generate a configuration file with everything explicitly set to the default
+    ///
+    /// Note that this file may become invalid in the future if left unchecked, it is better practice to remove
+    /// config items that are just the default
+    #[arg(long)]
+    pub init_config_file: bool,
     /// TIDAL URL or media ID (track, album, or playlist)
     ///
     /// Examples:
