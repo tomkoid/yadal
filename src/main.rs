@@ -1,13 +1,12 @@
-use std::process::exit;
+use std::{fs::create_dir_all, process::exit};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::Parser;
 
 mod args;
 mod auth;
 mod config;
 mod downloader;
-mod output;
 mod parser;
 mod tracing;
 mod types;
@@ -19,8 +18,8 @@ use types::MediaType;
 use crate::{
     args::{Cli, MediaTypeArg},
     config::FileConfig,
-    downloader::{config::DownloaderConfig, ui::summary::DownloadSummary},
-    output::prepare_output_directory,
+    downloader::{config::DownloaderConfig, config::DownloaderConfigDownload, config::DownloaderConfigTags,
+                 ui::summary::DownloadSummary},
     parser::parse_id_input,
 };
 
@@ -62,42 +61,54 @@ async fn main() -> Result<()> {
     // parse IDs and determine media type
     let targets = parse_id_input(&cli.id);
 
-    let output_path = match cli.output {
-        Some(path) => path,
-        None => prepare_output_directory().context("Failed to prepare output directory")?,
-    };
+    // get config from file
+	let config = FileConfig::try_new()
+        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
 
-    // check if ffmpeg is available for transcoding
-    let can_transcode = which::which("ffmpeg").is_ok();
-    let skip_transcode = cli.skip_transcode || !can_transcode;
+    let d = &config.download;
+    let t = &config.tags;
 
-    if !can_transcode && !cli.skip_transcode {
-        eprintln!(
-            "warning: ffmpeg not found, skipping transcoding. Install ffmpeg to enable transcoding.\n"
-        );
+    if !d.output_path.try_exists()? {
+        create_dir_all(&d.output_path)?;
     }
 
-    // get config from file
-	let config = FileConfig::try_new();
-
-    // this is not necessarilly needed right now but will be used if a config file is added
     let options = DownloaderConfig {
-        output_path,
-        audio_quality: cli.quality.into(),
-        force_download: cli.force,
-        no_stream_check: cli.no_stream_check,
-        max_parallel: cli.parallel,
-        lyrics: cli.lyrics,
-        range: cli.range,
-        skip_tag: cli.skip_tag,
-        skip_transcode,
+        download: DownloaderConfigDownload {
+            audio_quality: cli.quality.unwrap_or(d.audio_quality).into(),
+            output_path: cli.output.unwrap_or(d.output_path.clone()),
+            output_template: cli.template.unwrap_or(d.output_template.clone()),
+            force_download: cli.force.unwrap_or(d.force_download),
+            no_stream_check: cli.no_stream_check.unwrap_or(d.no_stream_check),
+            max_parallel: cli.parallel.unwrap_or(d.max_parallel),
+            range: cli.range,
+            skip_transcode: cli.skip_transcode.unwrap_or(d.skip_transcode),
+        },
+        tags: DownloaderConfigTags {
+            enable: !(cli.skip_tag.unwrap_or(!t.enable)),
+            lyrics: cli.lyrics.unwrap_or(t.lyrics.clone().into()).into(),
+            album: t.album,
+            album_artist: t.album_artist,
+            artist: t.artist,
+            bpm: t.bpm,
+            copyright: t.copyright,
+            cover: t.cover,
+            date: t.date,
+            disc_number: t.disc_number,
+            isrc: t.isrc,
+            initial_key_and_key_scale: t.initial_key_and_key_scale,
+            replaygain: t.replaygain.clone(),
+            title: t.title,
+            total_discs: t.total_discs,
+            total_tracks: t.total_tracks,
+            url: t.url,
+        }
     };
 
     // create downloader
     let mut downloader = Downloader::new(client, options.clone());
 
-    println!("audio quality: {:?}", options.audio_quality);
-    println!("output directory: {}", options.output_path.display());
+    println!("audio quality: {:?}", options.download.audio_quality);
+    println!("output directory: {}", options.download.output_path.display());
 
     print_full_line();
 

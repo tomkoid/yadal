@@ -4,6 +4,8 @@ use clap::{Parser, ValueEnum};
 use directories::ProjectDirs;
 use tidlers::client::models::playback::AudioQuality;
 
+use crate::config::LyricsMode;
+
 fn default_session_file() -> PathBuf {
     ProjectDirs::from("", "", "yadal")
         .map(|proj_dirs| proj_dirs.data_dir().join("session.json"))
@@ -35,20 +37,24 @@ pub struct Cli {
     pub media_type: MediaTypeArg,
 
     /// Audio quality
-    #[arg(short, long, value_enum, default_value = "hi-res")]
-    pub quality: QualityArg,
+    #[arg(short, long, value_enum)]
+    pub quality: Option<QualityArg>,
 
     /// Output directory
     #[arg(short, long, default_value = None)]
     pub output: Option<PathBuf>,
+
+    /// Output path template in the output directory
+    #[arg(short, long, default_value = None)]
+    pub template: Option<String>,
 
     /// Range (e.g., 1-10 for tracks 1 to 10, or 5 for track 5)
     #[arg(short, long, value_parser = parse_range)]
     pub range: Option<RangeInclusive<usize>>,
 
     /// Maximum parallel downloads
-    #[arg(short, long, default_value = "5")]
-    pub parallel: usize,
+    #[arg(short, long)]
+    pub parallel: Option<usize>,
 
     /// Force re-authentication
     #[arg(long)]
@@ -63,24 +69,24 @@ pub struct Cli {
     pub trace: bool,
 
     /// Redownload even if matching local file exists
-    #[arg(short, long)]
-    pub force: bool,
+    #[arg(short, long, num_args = 0..=1, default_missing_value = "true")]
+    pub force: Option<bool>,
 
     /// Skip checking if the stream is available before downloading
-    #[arg(long)]
-    pub no_stream_check: bool,
-
-    /// Add lyrics to the downloaded files (if available)
-    #[arg(short, long)]
-    pub lyrics: bool,
+    #[arg(long, num_args = 0..=1, default_missing_value = "true")]
+    pub no_stream_check: Option<bool>,
 
     /// Skip tagging
-    #[arg(short, long)]
-    pub skip_tag: bool,
+    #[arg(short, long, num_args = 0..=1, default_missing_value = "true")]
+    pub skip_tag: Option<bool>,
+
+    /// Add lyrics to the downloaded files (if available)
+    #[arg(short, long, num_args = 0..=1, default_missing_value = "true")]
+    pub lyrics: Option<Lyrics>,
 
     /// Skip transcoding and use the original file (m4a most of the time)
-    #[arg(long)]
-    pub skip_transcode: bool,
+    #[arg(long, num_args = 0..=1, default_missing_value = "true")]
+    pub skip_transcode: Option<bool>,
 
     /// Session file path
     #[arg(long, value_parser, default_value_os_t = default_session_file())]
@@ -105,6 +111,14 @@ pub enum MediaTypeArg {
     Playlist,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, ValueEnum)]
+pub enum Lyrics {
+    None,
+    UnsyncedOnly,
+    SyncedOnly,
+    UnsyncedAndSynced,
+}
+
 impl From<QualityArg> for AudioQuality {
     fn from(val: QualityArg) -> Self {
         match val {
@@ -115,6 +129,29 @@ impl From<QualityArg> for AudioQuality {
         }
     }
 }
+
+impl From<Lyrics> for LyricsMode {
+    fn from(val: Lyrics) -> Self {
+        match val {
+            Lyrics::None => LyricsMode::None,
+            Lyrics::UnsyncedOnly => LyricsMode::UnsyncedOnly,
+            Lyrics::SyncedOnly => LyricsMode::SyncedOnly,
+            Lyrics::UnsyncedAndSynced => LyricsMode::UnsyncedAndSynced,
+        }
+    }
+}
+
+impl From<LyricsMode> for Lyrics {
+    fn from(val: LyricsMode) -> Self {
+        match val {
+            LyricsMode::None => Lyrics::None,
+            LyricsMode::UnsyncedOnly => Lyrics::UnsyncedOnly,
+            LyricsMode::SyncedOnly => Lyrics::SyncedOnly,
+            LyricsMode::UnsyncedAndSynced => Lyrics::UnsyncedAndSynced,
+        }
+    }
+}
+
 fn parse_range(s: &str) -> Result<RangeInclusive<usize>, String> {
     let parts: Vec<&str> = s.split('-').collect();
     if parts.len() != 2 {

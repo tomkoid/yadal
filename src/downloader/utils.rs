@@ -190,7 +190,7 @@ impl Downloader {
     }
 
     pub fn check_allow_streaming(&self, track: &Track) -> Result<()> {
-        if !track.allow_streaming && !self.config.no_stream_check {
+        if !track.allow_streaming && !self.config.download.no_stream_check {
             anyhow::bail!("track is not available for streaming (use -f to force download)");
         }
 

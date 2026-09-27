@@ -3,14 +3,14 @@ use std::{fs::create_dir_all, path::PathBuf};
 
 use crate::args::QualityArg;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default)]
 pub struct FileConfig {
 	pub download: Download,
 	pub tags: Tags,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Download {
 	pub output_path: PathBuf,
@@ -22,7 +22,7 @@ pub struct Download {
 	pub skip_transcode: bool,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Tags {
 	pub enable: bool,
@@ -44,7 +44,7 @@ pub struct Tags {
 	pub url: bool,
 }
 
-#[derive(Debug, PartialEq, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum LyricsMode {
 	None,
@@ -54,7 +54,7 @@ pub enum LyricsMode {
 	UnsyncedAndSynced,
 }
 
-#[derive(Debug, PartialEq, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ReplayGainMode {
 	None,
@@ -117,16 +117,15 @@ impl Default for Tags {
 
 impl FileConfig {
 	pub fn try_new() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-		let config = FileConfig::default();
-		config.get_config()
+		Self::get_config()
 	}
 
-	fn get_config(&self) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-		let config_path = Self :: get_default_path();
+	fn get_config() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+		let config_path = Self::get_default_path();
 
 		// check if config file exists
 		if config_path.try_exists()? {
-			return self.load_from_file(&config_path);
+			return Self::load_from_file(&config_path);
 		} else {
 			return Ok(Self::default());
 		}
@@ -142,9 +141,9 @@ impl FileConfig {
 		}
 	}
 	//
-	fn load_from_file(&self, path: &PathBuf) -> Result<FileConfig, Box<dyn std::error::Error + Send + Sync>> {
+	fn load_from_file(path: &PathBuf) -> Result<FileConfig, Box<dyn std::error::Error + Send + Sync>> {
 		let config_str = std::fs::read_to_string(path)?;
-		let config: FileConfig = self.from_toml(&config_str)?;
+		let config: FileConfig = Self::from_toml(&config_str)?;
 		Ok(config)
 	}
 
@@ -166,7 +165,7 @@ impl FileConfig {
 		Ok(())
 	}
 
-	pub fn from_toml(&self, toml_str: &str) -> Result<Self, toml::de::Error> {
+	pub fn from_toml(toml_str: &str) -> Result<Self, toml::de::Error> {
 		toml::from_str(toml_str)
 	}
 

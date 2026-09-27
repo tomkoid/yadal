@@ -29,9 +29,9 @@ impl Downloader {
         println!("album: {}", track.album.as_ref().unwrap().title);
 
         if self
-            .find_existing_track_path(&self.config.output_path, &track, &MediaType::Track, None)
+            .find_existing_track_path(&self.config.download.output_path, &track, &MediaType::Track, None)
             .is_some()
-            && !self.config.force_download
+            && !self.config.download.force_download
         {
             eprintln!(
                 "skipping track (already exists in output directory, overwrite with --force)"
@@ -50,7 +50,7 @@ impl Downloader {
             .get_track_postpaywall_playback_info(
                 track_id.to_string(),
                 Some(TrackPlaybackInfoConfig {
-                    audio_quality: Some(self.config.audio_quality.clone()),
+                    audio_quality: Some(self.config.download.audio_quality.clone()),
                     ..Default::default()
                 }),
             )
@@ -78,7 +78,7 @@ impl Downloader {
         self.download_track_with_info_pb(DownloadTrackRequest {
             track: &track,
             playback_info: &playback_info,
-            output_path: &self.config.output_path,
+            output_path: &self.config.download.output_path,
             album_context,
             index: None,
             pb: Some(&pb),
@@ -102,8 +102,7 @@ impl Downloader {
             .await?;
 
         let target_dir = self
-            .config
-            .output_path
+            .config.download.output_path
             .join(sanitize_filename::sanitize(dir_name));
         std::fs::create_dir_all(&target_dir).context("Failed to create media directory")?;
 
@@ -246,13 +245,13 @@ impl Downloader {
 
         for (index, track) in tracks.into_iter().enumerate() {
             // handle range filtering if specified
-            if let Some(range) = &self.config.range
+            if let Some(range) = &self.config.download.range
                 && !range.contains(&(index + 1))
             {
                 continue;
             }
 
-            if !self.config.force_download
+            if !self.config.download.force_download
                 && self
                     .find_existing_track_path(target_dir, &track, &media_type, Some(index))
                     .is_some()

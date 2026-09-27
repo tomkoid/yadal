@@ -26,7 +26,7 @@ impl Downloader {
         println!(
             "\ndownloading {} tracks in parallel (max {})...",
             self.state.queued.len(),
-            self.config.max_parallel
+            self.config.download.max_parallel
         );
 
         let downloader = Arc::new(self);
@@ -71,7 +71,7 @@ impl Downloader {
                             let client_guard = client.lock().await;
                             client_guard
                                 .get_track_postpaywall_playback_info(track_id, Some(TrackPlaybackInfoConfig {
-                                    audio_quality: Some(downloader.config.audio_quality.clone()),
+                                    audio_quality: Some(downloader.config.download.audio_quality.clone()),
                                     ..Default::default()
                                 }))
                                 .await
@@ -166,7 +166,7 @@ impl Downloader {
                     }
                 }
             })
-            .buffer_unordered(self.config.max_parallel)
+            .buffer_unordered(self.config.download.max_parallel)
             .collect::<Vec<_>>()
             .await;
 

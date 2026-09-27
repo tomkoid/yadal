@@ -7,7 +7,7 @@ use std::path::Path;
 use std::str::FromStr;
 
 use crate::downloader::Downloader;
-use crate::downloader::context::TrackTagMetadata;
+use crate::downloader::context::{TagLyrics, TrackTagMetadata};
 
 impl Downloader {
     pub async fn tag_downloaded_file(
@@ -50,24 +50,30 @@ impl Downloader {
         };
 
         // title
-        tag.set_title(&metadata.title);
+        if metadata.tag_title {
+            tag.set_title(&metadata.title);
+        }
 
         // track number
-        match tag.set_track_number(metadata.track_number) {
-            Ok(_) => {}
-            Err(e) => {
-                eprintln!(
-                    "warning: failed to set track number for {}: {}",
-                    metadata.title, e
-                );
+        if let Some(track_number) = metadata.track_number {
+            match tag.set_track_number(track_number) {
+                Ok(_) => {}
+                Err(e) => {
+                    eprintln!(
+                        "warning: failed to set track number for {}: {}",
+                        metadata.title, e
+                    );
+                }
             }
         }
 
         // artists
-        if metadata.artists.len() == 1 {
-            tag.set_artist(&metadata.artists[0]);
-        } else if !metadata.artists.is_empty() {
-            tag.set_artists(metadata.artists.clone());
+        if let Some(ref artists) = metadata.artists {
+            if artists.len() == 1 {
+                tag.set_artist(&artists[0]);
+            } else if !artists.is_empty() {
+                tag.set_artists(artists.clone());
+            }
         }
 
         // cover
@@ -86,6 +92,8 @@ impl Downloader {
         };
 
         // album info
+        // multitag doesn't support setting cover, album title, or album artist separately
+        // this implementation could cause empty tags to be written in some cases
         let has_album_info =
             metadata.album_title.is_some() || metadata.album_artist.is_some() || cover.is_some();
         if has_album_info
@@ -103,7 +111,7 @@ impl Downloader {
         }
 
         // release date
-        if let Some(date) = metadata.release_date.as_deref() {
+        if let Some(ref date) = metadata.release_date {
             match Timestamp::from_str(date) {
                 Ok(timestamp) => tag.set_date(timestamp),
                 Err(err) => {
@@ -116,8 +124,14 @@ impl Downloader {
         }
 
         // lyrics
-        if let Some(lyrics) = metadata.lyrics.as_deref() {
-            tag.set_lyrics(lyrics);
+        // multitag doesn't support setting UNSYNCEDLYRICS instead of regular LYRICS (synced by convention)
+        // this implementation can currently set LYRICS to synced or unsynced lyrics, which is not the best behaviour
+        // as well as if both types of lyrics are available, only synced will be set
+        match &metadata.lyrics {
+            TagLyrics::UnsyncedOnly(unsynced) => tag.set_lyrics(unsynced),
+            TagLyrics::SyncedOnly(synced) => tag.set_lyrics(synced),
+            TagLyrics::UnsyncedAndSynced(_unsynced, synced) => tag.set_lyrics(synced),
+            TagLyrics::None => {},
         }
 
         // bpm
@@ -145,6 +159,15 @@ impl Downloader {
             let musical_key = format!("{}{}", key, key_scale.to_lowercase());
             tag.set_key(&musical_key);
         }
+
+        // cannot be set with multitag:
+        // copyright
+        // disc_number
+        // isrc
+        // replaygain
+        // total_discs
+        // total_tracks
+        // url
 
         file.rewind()
             .context("Failed to rewind file before writing tags")?;

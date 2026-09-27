@@ -13,16 +13,40 @@ pub struct AlbumTagContext {
 
 pub struct TrackTagMetadata {
     pub title: String,
-    pub track_number: u32,
-    pub artists: Vec<String>,
+    pub tag_title: bool,
+    pub track_number: Option<u32>,
+    pub artists: Option<Vec<String>>,
     pub album_title: Option<String>,
     pub album_artist: Option<String>,
     pub release_date: Option<String>,
     pub cover_url: Option<String>,
-    pub lyrics: Option<String>,
+    pub lyrics: TagLyrics,
     pub bpm: Option<f32>,
     pub key: Option<String>,
     pub key_scale: Option<String>,
+    pub copyright: Option<String>,
+    pub disc_number: Option<u32>,
+    pub isrc: Option<String>,
+    pub replaygain: TagReplayGain,
+    pub total_discs: Option<u32>,
+    pub total_tracks: Option<u32>,
+    pub url: Option<u32>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum TagLyrics {
+	None,
+	UnsyncedOnly(String),
+	SyncedOnly(String),
+	UnsyncedAndSynced(String, String),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum TagReplayGain {
+	None,
+	TrackOnly(String),
+	AlbumOnly(String),
+	TrackAndAlbum(String, String),
 }
 
 impl AlbumTagContext {
@@ -89,16 +113,26 @@ impl TrackTagMetadata {
 
         Self {
             title: track.title.clone(),
-            track_number,
-            artists,
+            tag_title: false, // needs to be set by the consumer
+            track_number: Some(track_number),
+            artists: Some(artists),
             album_title,
             album_artist,
             release_date,
             cover_url,
-            lyrics: None,
+            lyrics: TagLyrics::None,
             bpm: track.bpm,
             key: track.key.clone(),
             key_scale: track.key_scale.clone(),
+            // fields past here are unfinished and can maybe be set from this function
+            // this function might end up being changed altogether
+            copyright: None,
+            disc_number: None,
+            isrc: None,
+            replaygain: TagReplayGain::None,
+            total_discs: None,
+            total_tracks: None,
+            url: None,
         }
     }
 }
