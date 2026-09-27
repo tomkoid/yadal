@@ -4,31 +4,113 @@ use std::path::PathBuf;
 use crate::args::QualityArg;
 
 #[derive(Deserialize, Serialize)]
+#[serde(default)]
 pub struct FileConfig {
+	pub download: Download,
+	pub tags: Tags,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(default)]
+pub struct Download {
 	pub output_path: PathBuf,
+	pub output_template: String,
 	pub audio_quality: QualityArg,
 	pub max_parallel: usize,
 	pub force_download: bool,
 	pub no_stream_check: bool,
-	pub skip_tag: bool,
 	pub skip_transcode: bool,
-	pub lyrics: bool,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(default)]
+pub struct Tags {
+	pub enable: bool,
+	pub album: bool,
+	pub album_artist: bool,
+	pub artist: bool,
+	pub bpm: bool,
+	pub copyright: bool,
+	pub cover: bool, // cover is not technically a tag in some containers like FLAC, but for most it is
+	pub date: bool,
+	pub disc_number: bool,
+	pub isrc: bool,
+	pub initial_key_and_key_scale: bool,
+	pub lyrics: LyricsMode,
+	pub replaygain: ReplayGainMode,
+	pub title: bool,
+	pub total_discs: bool,
+	pub total_tracks: bool,
+	pub url: bool,
+}
+
+#[derive(Debug, PartialEq, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LyricsMode {
+	None,
+	UnsyncedOnly,
+	SyncedOnly,
+	#[default]
+	UnsyncedAndSynced,
+}
+
+#[derive(Debug, PartialEq, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ReplayGainMode {
+	None,
+	TrackOnly,
+	AlbumOnly,
+	#[default]
+	TrackAndAlbum,
 }
 
 impl Default for FileConfig {
 	fn default() -> Self {
+		FileConfig {
+			download: Download::default(),
+			tags: Tags::default(),
+		}
+	}
+}
+
+impl Default for Download {
+	fn default() -> Self {
 		let config_dir = dirs::home_dir().expect("Failed to get user's config directory");
 		let default_output_path = config_dir.join("Music").join("yadal");
 
-		FileConfig {
+		Self {
 			output_path: default_output_path,
-			audio_quality: QualityArg::Lossless,
+			output_template:
+				"{album.artist}/{album.title}/{album.index} {track.title} ({track.version}){\" (Explicit)\" if track.explicit else \"\"}.{track.extension}".into(),
+			audio_quality: QualityArg::default(),
 			max_parallel: 5,
 			force_download: false,
 			no_stream_check: false,
-			skip_tag: false,
 			skip_transcode: false,
-			lyrics: false,
+		}
+	}
+}
+
+impl Default for Tags {
+	fn default() -> Self {
+		Self {
+			enable: true,
+			album: true,
+			album_artist: true,
+			artist: true,
+			bpm: true,
+			copyright: true,
+			cover: true,
+			date: true,
+			disc_number: true,
+			isrc: true,
+			initial_key_and_key_scale: true,
+			lyrics: LyricsMode::default(),
+			replaygain: ReplayGainMode::default(),
+			title: true,
+			total_discs: true,
+			total_tracks: true,
+			url: true,
 		}
 	}
 }
@@ -46,9 +128,7 @@ impl FileConfig {
 		if config_path.try_exists()? {
 			return self.load_from_file(&config_path);
 		} else {
-			let default_config = FileConfig::default();
-			default_config.save_to_file(&config_path)?;
-			return Ok(default_config);
+			return Ok(Self :: default());
 		}
 	}
 
@@ -68,38 +148,72 @@ impl FileConfig {
 		Ok(config)
 	}
 
-	fn save_to_file(&self, path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
-		let toml_str = toml::to_string(self)?;
-		std::fs::write(path, toml_str)?;
-		Ok(())
-	}
-
 	pub fn from_toml(&self, toml_str: &str) -> Result<Self, toml::de::Error> {
 		toml::from_str(toml_str)
+	}
+
+	pub fn parse_output_template(&self) -> &str {
+		"temporary value"
 	}
 }
 
 #[test]
 fn test_config_deserialization() {
 	let toml_str = r#"
+		[download]
 		output_path = "/path/to/output"
+		output_template = "{album.artist}/{album.title}/{album.index} {track.title} ({track.version}){\" (Explicit)\" if track.explicit else \"\"}.{track.extension}"
 		audio_quality = "high"
-		max_parallel = 4
-		force_download = true
+		max_parallel = 5
+		force_download = false
 		no_stream_check = false
-		skip_tag = false
-		skip_transcode = true
-		lyrics = true
+		skip_transcode = false
+
+		[tags]
+		enable = true
+		album = true
+		album_artist = true
+		artist = true
+		bpm = true
+		copyright = true
+		cover = true
+		date = true
+		disc_number = true
+		isrc = true
+		initial_key_and_key_scale = true
+		lyrics = "unsynced-and-synced"
+		replaygain = "track-and-album"
+		title = true
+		total_discs = true
+		total_tracks = true
+		url = true
 	"#;
 
 	let config: FileConfig = toml::from_str(toml_str).expect("Failed to deserialize config");
+	let d = &config.download;
+	let t = &config.tags;
 
-	assert_eq!(config.output_path, PathBuf::from("/path/to/output"));
-	assert_eq!(config.audio_quality, QualityArg::High);
-	assert_eq!(config.max_parallel, 4);
-	assert!(config.force_download);
-	assert!(!config.no_stream_check);
-	assert!(!config.skip_tag);
-	assert!(config.skip_transcode);
-	assert!(config.lyrics);
+	assert_eq!(d.output_path, PathBuf::from("/path/to/output"));
+	assert_eq!(d.audio_quality, QualityArg::High);
+	assert_eq!(d.max_parallel, 5);
+	assert!(!d.force_download);
+	assert!(!d.no_stream_check);
+	assert!(!d.skip_transcode);
+	assert!(t.enable);
+	assert!(t.album);
+	assert!(t.album_artist);
+	assert!(t.artist);
+	assert!(t.bpm);
+	assert!(t.copyright);
+	assert!(t.cover);
+	assert!(t.date);
+	assert!(t.disc_number);
+	assert!(t.initial_key_and_key_scale);
+	assert!(t.isrc);
+	assert_eq!(t.lyrics, LyricsMode::UnsyncedAndSynced);
+	assert_eq!(t.replaygain, ReplayGainMode::TrackAndAlbum);
+	assert!(t.title);
+	assert!(t.total_discs);
+	assert!(t.total_tracks);
+	assert!(t.url);
 }

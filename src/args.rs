@@ -81,12 +81,13 @@ pub struct Cli {
     pub session_file: PathBuf,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, ValueEnum, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Copy, Clone, PartialEq, Eq, ValueEnum, Debug, Default, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum QualityArg {
     Low,
     High,
     Lossless,
+    #[default]
     HiRes,
 }
 
