@@ -27,4 +27,5 @@ crossterm = "0.29.0"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 symphonia = { version = "0.6.1", default-features = false, features = ["isomp4"] }
 toml = "1.1.6"
+toml_edit = "0.25.15"
 serde = "1.0.229"
