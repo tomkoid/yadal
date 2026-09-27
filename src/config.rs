@@ -43,7 +43,7 @@ impl FileConfig {
 		let config_path = self.get_default_path();
 
 		// check if config file exists
-		if config_path.exists() {
+		if config_path.try_exists()? {
 			return self.load_from_file(&config_path);
 		} else {
 			let default_config = FileConfig::default();
