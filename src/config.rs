@@ -83,7 +83,7 @@ impl Default for Download {
 		Self {
 			output_path,
 			output_template:
-				"{album.artist}/{album.title}/{album.index} {track.title} ({track.version}){\" (Explicit)\" if track.explicit else \"\"}.{track.extension}".into(),
+				"{album.artist}/{album.title}/{album.index} {track.title}{\" ({track.version})\" if track.version else \"\"}{\" (Explicit)\" if track.explicit else \"\"}.{track.extension}".into(),
 			audio_quality: QualityArg::default(),
 			max_parallel: 5,
 			force_download: false,
