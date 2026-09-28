@@ -47,8 +47,7 @@ Or you can install it system-wide like any other flake using the `flake.nix`.
 ### From source (Linux, macOS, Windows)
 
 To build and install Yadal, you need to have Rust installed. You can install Rust using [rustup](https://rustup.rs/).
-
-Also, Yadal for now depends on `ffmpeg` when downloading lossless or hi-res audio. Make sure you have `ffmpeg` installed and available in your PATH.
+Rust 1.88+ is required.
 
 ```bash
 cargo install --git https://codeberg.org/tomkoid/yadal --locked
@@ -147,8 +146,3 @@ Session files are stored in platform-specific locations:
 - Windows: `%APPDATA%\yadal\session.json`
 
 Sessions are automatically refreshed when needed, so you only need to authenticate once.
-
-## Requirements
-
-- Rust 1.70 or later
-- Active TIDAL subscription
