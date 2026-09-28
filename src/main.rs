@@ -109,7 +109,7 @@ async fn main() -> Result<()> {
             title: t.title,
             total_discs: t.total_discs,
             total_tracks: t.total_tracks,
-            version: t.version,
+            track_version: t.track_version,
             url: t.url,
         }
     };

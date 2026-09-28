@@ -40,6 +40,6 @@ pub struct DownloaderConfigTags {
 	pub title: bool,
 	pub total_discs: bool,
 	pub total_tracks: bool,
-	pub version: bool,
+	pub track_version: bool,
 	pub url: bool,
 }

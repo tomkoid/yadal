@@ -14,7 +14,7 @@ pub struct AlbumTagContext {
 pub struct TrackTagMetadata {
     pub title: String,
     pub tag_title: bool,
-    pub version: Option<String>,
+    pub track_version: Option<String>,
     pub track_number: Option<u32>,
     pub artists: Option<Vec<String>>,
     pub album_title: Option<String>,
@@ -124,11 +124,11 @@ impl TrackTagMetadata {
         Self {
             title: track.title.clone(),
             tag_title: false, // needs to be set by the consumer
-            version: track.version.clone(),
+            track_version: track.version.clone(),
             track_number: Some(track_number),
             artists: Some(artists),
             album_title,
-            album_artists: album_artists,
+            album_artists,
             release_date,
             cover_url,
             lyrics: TagLyrics::None,

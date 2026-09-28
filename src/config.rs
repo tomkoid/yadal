@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::{fs::create_dir_all, path::{Component, Path, PathBuf, Prefix}};
-use std::io::self;
+use std::io;
 
 use crate::args::QualityArg;
 
@@ -52,7 +52,7 @@ pub struct Tags {
 	pub title: bool,
 	pub total_discs: bool,
 	pub total_tracks: bool,
-	pub version: bool,
+	pub track_version: bool,
 	pub url: bool,
 }
 
@@ -114,7 +114,7 @@ impl Default for Tags {
 			title: true,
 			total_discs: true,
 			total_tracks: true,
-			version: true,
+			track_version: true,
 			url: true,
 		}
 	}
