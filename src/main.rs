@@ -31,7 +31,9 @@ async fn main() -> Result<()> {
     }
 
     if cli.init_config_file {
-        FileConfig::init_default_config().map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        let path = FileConfig::init_default_config().map_err(|e| anyhow::anyhow!(e.to_string()))?;
+
+        println!("generated fully defaulted config file at: {}", path.display());
         return Ok(());
     }
 
@@ -100,6 +102,7 @@ async fn main() -> Result<()> {
             title: t.title,
             total_discs: t.total_discs,
             total_tracks: t.total_tracks,
+            version: t.version,
             url: t.url,
         }
     };

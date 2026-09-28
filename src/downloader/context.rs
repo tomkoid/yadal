@@ -14,6 +14,7 @@ pub struct AlbumTagContext {
 pub struct TrackTagMetadata {
     pub title: String,
     pub tag_title: bool,
+    pub version: Option<String>,
     pub track_number: Option<u32>,
     pub artists: Option<Vec<String>>,
     pub album_title: Option<String>,
@@ -44,9 +45,15 @@ pub enum TagLyrics {
 #[derive(Clone, Debug, PartialEq)]
 pub enum TagReplayGain {
 	None,
-	TrackOnly(String),
-	AlbumOnly(String),
-	TrackAndAlbum(String, String),
+	TrackOnly(ReplayGainValues),
+	AlbumOnly(ReplayGainValues),
+	TrackAndAlbum(ReplayGainValues, ReplayGainValues),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReplayGainValues {
+    pub gain: String,
+    pub peak: String,
 }
 
 impl AlbumTagContext {
@@ -121,6 +128,7 @@ impl TrackTagMetadata {
         Self {
             title: track.title.clone(),
             tag_title: false, // needs to be set by the consumer
+            version: track.version.clone(),
             track_number: Some(track_number),
             artists: Some(artists),
             album_title,
@@ -131,15 +139,15 @@ impl TrackTagMetadata {
             bpm: track.bpm,
             key: track.key.clone(),
             key_scale: track.key_scale.clone(),
-            // fields past here are unfinished and can maybe be set from this function
-            // this function might end up being changed altogether
-            copyright: None,
-            disc_number: None,
-            isrc: None,
+            copyright: track.copyright.clone(),
+            disc_number: Some(track.volume_number),
+            isrc: track.isrc.clone(),
             replaygain: TagReplayGain::None,
+            // not implemented in tidlers
             total_discs: None,
+            // not implemented in tidlers
             total_tracks: None,
-            url: None,
+            url: Some(track.url.clone()),
         }
     }
 }

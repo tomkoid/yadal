@@ -8,7 +8,7 @@ use tidlers::client::models::track::{
 
 use crate::{
     config::{LyricsMode, ReplayGainMode}, downloader::{
-        Downloader, context::{AlbumTagContext, TagLyrics, TagReplayGain, TrackTagMetadata},
+        Downloader, context::{AlbumTagContext, ReplayGainValues, TagLyrics, TagReplayGain, TrackTagMetadata},
     }, types::MediaType,
 };
 
@@ -76,7 +76,8 @@ impl Downloader {
 
         let mut tag_metadata = TrackTagMetadata::from_track(request.track, request.album_context);
 
-        let t = &self.config.tags;let tm = &mut tag_metadata;
+        let t = &self.config.tags;
+        let tm = &mut tag_metadata;
 
         tm.tag_title = self.config.tags.title;
         if !t.album { tm.album_title = None };
@@ -92,40 +93,86 @@ impl Downloader {
             tm.key_scale = None;
         };
         if !t.isrc { tm.isrc = None};
-        if t.lyrics == LyricsMode::None { tm.lyrics = TagLyrics::None };
-        if t.replaygain == ReplayGainMode::None { tm.replaygain = TagReplayGain::None};
         if !t.total_discs { tm.total_discs = None};
         if !t.total_tracks { tm.total_tracks = None};
+        if !t.version { tm.version = None};
         if !t.url { tm.url = None};
 
         // handle lyrics
-        'once: {
-            if !matches!(t.lyrics, LyricsMode::None) {
-                let lyrics = match self
-                    .tidal_client
-                    .get_track_lyrics(request.track.id.to_string())
-                    .await {
-                        Ok(lyrics_res) => lyrics_res,
-                        Err(_) => break 'once
-                    };
+        'once: { if !matches!(t.lyrics, LyricsMode::None) {
+            let lyrics = match self
+                .tidal_client
+                .get_track_lyrics(request.track.id.to_string())
+                .await {
+                    Ok(lyrics_res) => lyrics_res,
+                    Err(_) => break 'once
+                };
 
-                match t.lyrics {
-                    LyricsMode::UnsyncedOnly => tag_metadata.lyrics = TagLyrics::UnsyncedOnly(lyrics.lyrics),
-                    LyricsMode::SyncedOnly => {
-                        if let Some(synced_lyrics) = lyrics.subtitles {
-                            tag_metadata.lyrics = TagLyrics::SyncedOnly(synced_lyrics);
-                        }
-                    },
-                    LyricsMode::UnsyncedAndSynced => {
-                        if let Some(synced_lyrics) = lyrics.subtitles {
-                            tag_metadata.lyrics = TagLyrics::UnsyncedAndSynced(lyrics.lyrics, synced_lyrics);
-                        } else { // don't fail if we can't get synced lyrics
-                            tag_metadata.lyrics = TagLyrics::UnsyncedOnly(lyrics.lyrics);
-                        }
-                    },
-                    _ => unreachable!(),
-                }
+            match t.lyrics {
+                LyricsMode::UnsyncedOnly => tm.lyrics = TagLyrics::UnsyncedOnly(lyrics.lyrics),
+                LyricsMode::SyncedOnly => {
+                    if let Some(synced_lyrics) = lyrics.subtitles {
+                        tm.lyrics = TagLyrics::SyncedOnly(synced_lyrics);
+                    }
+                },
+                LyricsMode::UnsyncedAndSynced => {
+                    if let Some(synced_lyrics) = lyrics.subtitles {
+                        tm.lyrics = TagLyrics::UnsyncedAndSynced(lyrics.lyrics, synced_lyrics);
+                    } else { // don't fail if we can't get synced lyrics
+                        tm.lyrics = TagLyrics::UnsyncedOnly(lyrics.lyrics);
+                    }
+                },
+                _ => unreachable!(),
             }
+        } }
+
+        if !matches!(t.replaygain, ReplayGainMode::None) {
+            let rp_gain_track = fmt_gain(request.playback_info.track_replay_gain);
+            let rp_peak_track = fmt_peak(request.playback_info.track_peak_amplitude);
+            let rp_gain_album = fmt_gain(request.playback_info.album_replay_gain);
+            let rp_peak_album = fmt_peak(request.playback_info.album_peak_amplitude);
+
+            let replaygainmode = match t.replaygain {
+                ReplayGainMode::TrackOnly => {
+                    if let Some(gain) = rp_gain_track && let Some(peak) = rp_peak_track {
+                        TagReplayGain::TrackOnly(ReplayGainValues {gain, peak})
+                    } else {
+                        TagReplayGain::None
+                    }
+                },
+                ReplayGainMode::AlbumOnly => {
+                    if let Some(gain) = rp_gain_album && let Some(peak) = rp_peak_album {
+                        TagReplayGain::AlbumOnly(ReplayGainValues {gain, peak})
+                    } else {
+                        TagReplayGain::None
+                    }
+                },
+                ReplayGainMode::TrackAndAlbum => {
+                    let mut track_values: Option<ReplayGainValues> = None;
+                    let mut album_values: Option<ReplayGainValues> = None;
+
+                    if let Some(gain) = rp_gain_track && let Some(peak) = rp_peak_track {
+                        track_values = Some(ReplayGainValues {gain, peak});
+                    }
+
+                    if let Some(gain) = rp_gain_album && let Some(peak) = rp_peak_album {
+                        album_values = Some(ReplayGainValues { gain, peak });
+                    }
+
+                    if let Some(track_values) = &track_values && let Some(album_values) = &album_values {
+                        TagReplayGain::TrackAndAlbum(track_values.clone(), album_values.clone())
+                    } else if let Some(track_values) = track_values {
+                        TagReplayGain::TrackOnly(track_values)
+                    } else if let Some(album_values) = album_values {
+                        TagReplayGain::AlbumOnly(album_values)
+                    } else {
+                        TagReplayGain::None
+                    }
+                },
+                _ => unreachable!(),
+            };
+
+            tm.replaygain = replaygainmode;
         }
 
         self.tag_downloaded_file(&output_path, &tag_metadata)
@@ -134,4 +181,12 @@ impl Downloader {
 
         Ok(())
     }
+}
+
+fn fmt_gain(db: f64) -> Option<String> {
+    db.is_finite().then(|| format!("{:.2} dB", db))
+}
+
+fn fmt_peak(amp: f64) -> Option<String> {
+    amp.is_finite().then(|| format!("{:.6}", amp))
 }

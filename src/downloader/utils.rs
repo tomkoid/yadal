@@ -96,15 +96,23 @@ impl Downloader {
 
     /// get the base name for a track file, including track number and sanitized title
     /// this will be useful in the future if we want to support custom formatting of track file
-    /// names
+    /// names.
+    /// This function temporarily includes the track version alongside the title, this will be changed
+    /// when output templating gets implemented
     pub fn get_track_base_name(
         &self,
         track: &Track,
         media_type: &MediaType,
         index: Option<usize>,
     ) -> String {
+        let name = if let Some(ref version) = track.version {
+            track.title.clone() + &format!(" ({version})")
+        } else {
+            track.title.clone()
+        };
+
         if MediaType::Track == *media_type {
-            return sanitize_filename::sanitize(&track.title);
+            return sanitize_filename::sanitize(name);
         }
 
         // use album original track numbers and for playlists use their positional index
@@ -119,7 +127,7 @@ impl Downloader {
         format!(
             "{:02} {}",
             track_number,
-            sanitize_filename::sanitize(&track.title)
+            sanitize_filename::sanitize(name)
         )
     }
 

@@ -41,6 +41,7 @@ pub struct Tags {
 	pub title: bool,
 	pub total_discs: bool,
 	pub total_tracks: bool,
+	pub version: bool,
 	pub url: bool,
 }
 
@@ -110,6 +111,7 @@ impl Default for Tags {
 			title: true,
 			total_discs: true,
 			total_tracks: true,
+			version: true,
 			url: true,
 		}
 	}
@@ -147,7 +149,7 @@ impl FileConfig {
 		Ok(config)
 	}
 
-	pub fn init_default_config() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+	pub fn init_default_config() -> Result<PathBuf, Box<dyn std::error::Error + Send + Sync>> {
 		let path = Self::get_default_path();
 
 		let parent_folder = if let Some(parent) = path.parent() {
@@ -161,8 +163,9 @@ impl FileConfig {
 		}
 
 		let toml_str = toml::to_string(&Self::default())?;
-		std::fs::write(path, toml_str)?;
-		Ok(())
+		std::fs::write(&path, toml_str)?;
+
+		Ok(path)
 	}
 
 	pub fn from_toml(toml_str: &str) -> Result<Self, toml::de::Error> {
