@@ -33,7 +33,7 @@ async fn main() -> Result<()> {
     }
 
     if cli.init_config_file {
-        let path = FileConfig::init_default_config().map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        let path = FileConfig::init_default_config()?;
 
         println!("generated fully defaulted config file at: {}", path.display());
         return Ok(());
@@ -66,8 +66,7 @@ async fn main() -> Result<()> {
     let targets = parse_id_input(&cli.id);
 
     // get config from file
-	let config = FileConfig::try_new()
-        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+	let config = FileConfig::try_new()?;
 
     let d = &config.download;
     let t = &config.tags;

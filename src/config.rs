@@ -1,7 +1,18 @@
 use serde::{Deserialize, Serialize};
 use std::{fs::create_dir_all, path::{Path, PathBuf}};
+use std::io::self;
 
 use crate::args::QualityArg;
+
+#[derive(Debug, thiserror::Error)]
+pub enum FileConfigError {
+	#[error("I/O Error: {0}")]
+	IO(#[from] io::Error),
+	#[error("TOML deserialising error: {0}")]
+	TomlDeserialise(#[from] toml::de::Error),
+	#[error("TOML serialising error: {0}")]
+	TomlSerialise(#[from] toml::ser::Error),
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default)]
@@ -119,12 +130,12 @@ impl Default for Tags {
 }
 
 impl FileConfig {
-	pub fn try_new() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+	pub fn try_new() -> Result<Self, FileConfigError> {
 		Self::get_config()
 	}
 
-	fn get_config() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-		let config_path = Self::get_default_path();
+	fn get_config() -> Result<Self, FileConfigError> {
+		let config_path = Self::get_default_path()?;
 
 		// check if config file exists
 		if config_path.try_exists()? {
@@ -134,24 +145,22 @@ impl FileConfig {
 		}
 	}
 
-	fn get_default_path() -> PathBuf {
-		let config_dir = dirs::config_dir();
-
-		if let Some(config_dir) = config_dir {
-			return config_dir.join("yadal").join("config.toml");
+	fn get_default_path() -> io::Result<PathBuf> {
+		if let Some(config_dir) = dirs::config_dir() {
+			Ok(config_dir.join("yadal").join("config.toml"))
 		} else {
-			panic!("Failed to get user's config directory, something is wrong here.");
+			Err(io::Error::other("Failed to get user's config directory, something is wrong here."))
 		}
 	}
-	//
-	fn load_from_file(path: &PathBuf) -> Result<FileConfig, Box<dyn std::error::Error + Send + Sync>> {
+
+	fn load_from_file(path: &PathBuf) -> Result<FileConfig, FileConfigError> {
 		let config_str = std::fs::read_to_string(path)?;
 		let config: FileConfig = Self::from_toml(&config_str)?;
 		Ok(config)
 	}
 
-	pub fn init_default_config() -> Result<PathBuf, Box<dyn std::error::Error + Send + Sync>> {
-		let path = Self::get_default_path();
+	pub fn init_default_config() -> Result<PathBuf, FileConfigError> {
+		let path = Self::get_default_path()?;
 
 		let parent_folder = if let Some(parent) = path.parent() {
 			parent
@@ -171,10 +180,6 @@ impl FileConfig {
 
 	pub fn from_toml(toml_str: &str) -> Result<Self, toml::de::Error> {
 		toml::from_str(toml_str)
-	}
-
-	pub fn parse_output_template(&self) -> String {
-		"temporary value".into()
 	}
 }
 
