@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{fs::create_dir_all, path::{Path, PathBuf}};
+use std::{fs::create_dir_all, path::{Component, Path, PathBuf, Prefix}};
 use std::io::self;
 
 use crate::args::QualityArg;
@@ -174,16 +174,47 @@ impl FileConfig {
 	}
 }
 
+fn component_key(c: Component<'_>) -> String {
+    match c {
+        // `C:`, `c:`, and `\\?\C:` all normalize to `C:`
+        Component::Prefix(p) => match p.kind() {
+            Prefix::Disk(d) | Prefix::VerbatimDisk(d) => {
+                format!("{}:", (d as char).to_ascii_uppercase())
+            }
+            _ => p.as_os_str().to_string_lossy().to_lowercase(),
+        },
+        other => {
+            let s = other.as_os_str().to_string_lossy();
+            if cfg!(windows) {
+                s.to_lowercase()
+            } else {
+                s.into_owned()
+            }
+        }
+    }
+}
+
+/// converts a path like /home/user/Downloads or C:\Users\user\Downloads to ~/Downloads \
+/// should be able to handle the majority of all paths
 fn replace_with_home_symbol(path: &Path) -> Option<String> {
-	if let Ok(rest) = path.strip_prefix(&dirs::home_dir()?) {
-        return if rest.as_os_str().is_empty() {
-            Some("~".to_string())
-        } else {
-            Some(format!("~/{}", rest.display()))
+    let home = dirs::home_dir()?;
+
+    let mut path_components = path.components();
+    for home_component in home.components() {
+        match path_components.next() {
+            Some(c) if component_key(c) == component_key(home_component) => {}
+            _ => return Some(path.display().to_string()),
         }
     }
 
-    Some(path.display().to_string())
+    let rest = path_components.map(|c| c.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>().join("/");
+
+    Some(if rest.is_empty() {
+        "~".to_string()
+    } else {
+        format!("~/{rest}")
+    })
 }
 
 pub fn expand_home_symbol(path: &str) -> Option<PathBuf> {
