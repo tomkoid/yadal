@@ -1,6 +1,7 @@
 use std::{fs::create_dir_all, process::exit};
+use std::path::PathBuf;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use clap::Parser;
 
 mod args;
@@ -15,6 +16,7 @@ use auth::{authenticate, load_or_authenticate};
 use downloader::Downloader;
 use types::MediaType;
 
+use crate::config::expand_home_symbol;
 use crate::{
     args::{Cli, MediaTypeArg},
     config::FileConfig,
@@ -70,14 +72,20 @@ async fn main() -> Result<()> {
     let d = &config.download;
     let t = &config.tags;
 
-    if !d.output_path.try_exists()? {
-        create_dir_all(&d.output_path)?;
+    let download_path = if let Some(path) = expand_home_symbol(&d.output_path) {
+        path
+    } else {
+        bail!("failed to expand output_path home symbol");
+    };
+
+    if !PathBuf::from(&download_path).try_exists()? {
+        create_dir_all(&download_path)?;
     }
 
     let options = DownloaderConfig {
         download: DownloaderConfigDownload {
             audio_quality: cli.quality.unwrap_or(d.audio_quality).into(),
-            output_path: cli.output.unwrap_or(d.output_path.clone()),
+            output_path: cli.output.unwrap_or(download_path.clone()),
             output_template: cli.template.unwrap_or(d.output_template.clone()),
             force_download: cli.force.unwrap_or(d.force_download),
             no_stream_check: cli.no_stream_check.unwrap_or(d.no_stream_check),

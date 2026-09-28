@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{fs::create_dir_all, path::PathBuf};
+use std::{fs::create_dir_all, path::{Path, PathBuf}};
 
 use crate::args::QualityArg;
 
@@ -13,7 +13,7 @@ pub struct FileConfig {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Download {
-	pub output_path: PathBuf,
+	pub output_path: String,
 	pub output_template: String,
 	pub audio_quality: QualityArg,
 	pub max_parallel: usize,
@@ -76,11 +76,12 @@ impl Default for FileConfig {
 
 impl Default for Download {
 	fn default() -> Self {
-		let config_dir = dirs::home_dir().expect("Failed to get user's config directory");
-		let default_output_path = config_dir.join("Music").join("yadal");
+		let audio_dir = dirs::audio_dir().expect("failed to get user audio path").join("yadal")
+			.canonicalize().expect("failed to canonicalise user audio path");
+		let output_path = replace_with_home_symbol(&audio_dir).expect("failed to replace home path with tilde symbol");
 
 		Self {
-			output_path: default_output_path,
+			output_path,
 			output_template:
 				"{album.artist}/{album.title}/{album.index} {track.title} ({track.version}){\" (Explicit)\" if track.explicit else \"\"}.{track.extension}".into(),
 			audio_quality: QualityArg::default(),
@@ -177,6 +178,28 @@ impl FileConfig {
 	}
 }
 
+fn replace_with_home_symbol(path: &Path) -> Option<String> {
+	if let Ok(rest) = path.strip_prefix(&dirs::home_dir()?) {
+        return if rest.as_os_str().is_empty() {
+            Some("~".to_string())
+        } else {
+            Some(format!("~/{}", rest.display()))
+        }
+    }
+
+    Some(path.display().to_string())
+}
+
+pub fn expand_home_symbol(path: &str) -> Option<PathBuf> {
+    if let Some(stripped) = path.strip_prefix("~/") {
+        return Some(dirs::home_dir()?.join(stripped));
+    } else if let Some(stripped) = path.strip_prefix("~\\") {
+        return Some(dirs::home_dir()?.join(stripped));
+    }
+
+    return Some(PathBuf :: from(path));
+}
+
 #[test]
 fn test_config_deserialization() {
 	let toml_str = r#"
@@ -213,7 +236,7 @@ fn test_config_deserialization() {
 	let d = &config.download;
 	let t = &config.tags;
 
-	assert_eq!(d.output_path, PathBuf::from("/path/to/output"));
+	assert_eq!(d.output_path, String::from("/path/to/output"));
 	assert_eq!(d.audio_quality, QualityArg::High);
 	assert_eq!(d.max_parallel, 5);
 	assert!(!d.force_download);
