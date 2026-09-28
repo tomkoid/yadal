@@ -51,7 +51,13 @@ impl Downloader {
 
         // title
         if metadata.tag_title {
-            tag.set_title(&metadata.title);
+            let title = if let Some(ref version) = metadata.version {
+                metadata.title.clone() + &format!(" ({version})")
+            } else {
+                metadata.title.clone()
+            };
+
+            tag.set_title(&title);
         }
 
         // track number
