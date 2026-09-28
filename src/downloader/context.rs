@@ -117,11 +117,7 @@ impl TrackTagMetadata {
         };
 
         // temporary until tidlers implements getting multiple album artists
-        let album_artist = if let Some(unwrapped_album_artist) = album_artist {
-            Some(vec![unwrapped_album_artist])
-        } else {
-            None
-        };
+        let album_artists = album_artist.map(|unwrapped_album_artist| vec![unwrapped_album_artist]);
 
         let track_number = track.track_number;
 
@@ -132,7 +128,7 @@ impl TrackTagMetadata {
             track_number: Some(track_number),
             artists: Some(artists),
             album_title,
-            album_artists: album_artist,
+            album_artists: album_artists,
             release_date,
             cover_url,
             lyrics: TagLyrics::None,

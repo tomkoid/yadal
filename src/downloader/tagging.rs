@@ -102,11 +102,7 @@ impl Downloader {
         // this implementation could cause empty tags to be written in some cases
         // tidlers only supports getting the first album artist
         // temporary workaround to just set the first one
-        let album_artist = if let Some(ref album_artist) = metadata.album_artists {
-            Some(album_artist[0].clone())
-        } else {
-            None
-        };
+        let album_artist = metadata.album_artists.as_ref().map(|album_artist| album_artist[0].clone());
         let has_album_info =
             metadata.album_title.is_some() || metadata.album_artists.is_some() || cover.is_some();
         if has_album_info

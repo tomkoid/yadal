@@ -14,7 +14,7 @@ pub enum FileConfigError {
 	TomlSerialise(#[from] toml::ser::Error),
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Default, Debug, Deserialize, Serialize)]
 #[serde(default)]
 pub struct FileConfig {
 	pub download: Download,
@@ -76,15 +76,6 @@ pub enum ReplayGainMode {
 	TrackAndAlbum,
 }
 
-impl Default for FileConfig {
-	fn default() -> Self {
-		FileConfig {
-			download: Download::default(),
-			tags: Tags::default(),
-		}
-	}
-}
-
 impl Default for Download {
 	fn default() -> Self {
 		let audio_dir = dirs::audio_dir().expect("failed to get user audio path").join("yadal")
@@ -139,9 +130,9 @@ impl FileConfig {
 
 		// check if config file exists
 		if config_path.try_exists()? {
-			return Self::load_from_file(&config_path);
+			Self::load_from_file(&config_path)
 		} else {
-			return Ok(Self::default());
+			Ok(Self::default())
 		}
 	}
 
@@ -202,7 +193,7 @@ pub fn expand_home_symbol(path: &str) -> Option<PathBuf> {
         return Some(dirs::home_dir()?.join(stripped));
     }
 
-    return Some(PathBuf :: from(path));
+    Some(PathBuf :: from(path))
 }
 
 #[test]
