@@ -94,12 +94,19 @@ impl Downloader {
         // album info
         // multitag doesn't support setting cover, album title, or album artist separately
         // this implementation could cause empty tags to be written in some cases
+        // tidlers only supports getting the first album artist
+        // temporary workaround to just set the first one
+        let album_artist = if let Some(ref album_artist) = metadata.album_artists {
+            Some(album_artist[0].clone())
+        } else {
+            None
+        };
         let has_album_info =
-            metadata.album_title.is_some() || metadata.album_artist.is_some() || cover.is_some();
+            metadata.album_title.is_some() || metadata.album_artists.is_some() || cover.is_some();
         if has_album_info
             && let Err(e) = tag.set_album_info(multitag::data::Album {
                 title: metadata.album_title.clone(),
-                artist: metadata.album_artist.clone(),
+                artist: album_artist,
                 cover,
             })
         {

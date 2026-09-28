@@ -80,7 +80,7 @@ impl Downloader {
 
         tm.tag_title = self.config.tags.title;
         if !t.album { tm.album_title = None };
-        if !t.album_artist { tm.album_artist = None };
+        if !t.album_artist { tm.album_artists = None };
         if !t.artist { tm.artists = None};
         if !t.bpm { tm.bpm = None };
         if !t.copyright { tm.copyright = None};

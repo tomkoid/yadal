@@ -17,7 +17,7 @@ pub struct TrackTagMetadata {
     pub track_number: Option<u32>,
     pub artists: Option<Vec<String>>,
     pub album_title: Option<String>,
-    pub album_artist: Option<String>,
+    pub album_artists: Option<Vec<String>>,
     pub release_date: Option<String>,
     pub cover_url: Option<String>,
     pub lyrics: TagLyrics,
@@ -109,6 +109,13 @@ impl TrackTagMetadata {
             ),
         };
 
+        // temporary until tidlers implements getting multiple album artists
+        let album_artist = if let Some(unwrapped_album_artist) = album_artist {
+            Some(vec![unwrapped_album_artist])
+        } else {
+            None
+        };
+
         let track_number = track.track_number;
 
         Self {
@@ -117,7 +124,7 @@ impl TrackTagMetadata {
             track_number: Some(track_number),
             artists: Some(artists),
             album_title,
-            album_artist,
+            album_artists: album_artist,
             release_date,
             cover_url,
             lyrics: TagLyrics::None,
