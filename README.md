@@ -57,6 +57,8 @@ The binary will be available in your `~/.cargo/bin`.
 
 ## Usage
 
+> An active TIDAL subscription is required to use yadal.
+
 ### Basic Usage
 
 Download a track:
