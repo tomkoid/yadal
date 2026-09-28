@@ -30,7 +30,7 @@ pub struct TrackTagMetadata {
     pub replaygain: TagReplayGain,
     pub total_discs: Option<u32>,
     pub total_tracks: Option<u32>,
-    pub url: Option<u32>,
+    pub url: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
