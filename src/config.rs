@@ -2,7 +2,9 @@ use serde::{Deserialize, Serialize};
 use std::{fs::create_dir_all, path::{Component, Path, PathBuf, Prefix}};
 use std::io;
 
-use crate::args::QualityArg;
+use crate::{args::QualityArg, template::validate};
+
+const OUTPUT_TEMPLATE: &str = "{{ album.artists[0] }}/{{ album.title }}/{{ \"%02d\"|format(track.number) }} {{ track.title }}{% if track.version %} ({{ track.version }}){% endif %}{% if track.explicit %} (Explicit){% endif %}.{{ track.extension }}";
 
 #[derive(Debug, thiserror::Error)]
 pub enum FileConfigError {
@@ -12,6 +14,8 @@ pub enum FileConfigError {
 	TomlDeserialise(#[from] toml::de::Error),
 	#[error("TOML serialising error: {0}")]
 	TomlSerialise(#[from] toml::ser::Error),
+	#[error("MiniJinja templating error: {0}")]
+	MiniJinjaTemplateError(#[from] minijinja::Error),
 }
 
 #[derive(Clone, Default, Debug, Deserialize, Serialize)]
@@ -85,8 +89,7 @@ impl Default for Download {
 
 		Self {
 			output_path,
-			output_template:
-				"{album.artist}/{album.title}/{album.index} {track.title}{\" ({track.version})\" if track.version else \"\"}{\" (Explicit)\" if track.explicit else \"\"}.{track.extension}".into(),
+			output_template: OUTPUT_TEMPLATE.into(),
 			audio_quality: QualityArg::default(),
 			max_parallel: 5,
 			force_download: false,
@@ -149,6 +152,9 @@ impl FileConfig {
 	fn load_from_file(path: &PathBuf) -> Result<FileConfig, FileConfigError> {
 		let config_str = std::fs::read_to_string(path)?;
 		let config: FileConfig = Self::from_toml(&config_str)?;
+
+		validate(&config.download.output_template)?;
+
 		Ok(config)
 	}
 
@@ -234,7 +240,7 @@ fn test_config_deserialization() {
 	let toml_str = r#"
 		[download]
 		output_path = "/path/to/output"
-		output_template = "{album.artist}/{album.title}/{album.index} {track.title} ({track.version}){\" (Explicit)\" if track.explicit else \"\"}.{track.extension}"
+		output_template = "{{ album.artists[0] }}/{{ album.title }}/{{ \"%02d\"|format(track.number) }} {{ track.title }}{% if track.version %} ({{ track.version }}){% endif %}{% if track.explicit %} (Explicit){% endif %}.{{ track.extension }}"
 		audio_quality = "high"
 		max_parallel = 5
 		force_download = false
@@ -258,6 +264,8 @@ fn test_config_deserialization() {
 		title = true
 		total_discs = true
 		total_tracks = true
+		track_number = true
+		track_version = true
 		url = true
 	"#;
 
@@ -266,6 +274,7 @@ fn test_config_deserialization() {
 	let t = &config.tags;
 
 	assert_eq!(d.output_path, String::from("/path/to/output"));
+	assert_eq!(d.output_template, String::from(OUTPUT_TEMPLATE));
 	assert_eq!(d.audio_quality, QualityArg::High);
 	assert_eq!(d.max_parallel, 5);
 	assert!(!d.force_download);
@@ -287,5 +296,7 @@ fn test_config_deserialization() {
 	assert!(t.title);
 	assert!(t.total_discs);
 	assert!(t.total_tracks);
+	assert!(t.track_number);
+	assert!(t.track_version);
 	assert!(t.url);
 }
