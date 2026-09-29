@@ -51,7 +51,7 @@ impl Downloader {
 
         // title
         if metadata.tag_title {
-            let title = if let Some(ref version) = metadata.version {
+            let title = if let Some(ref version) = metadata.track_version {
                 metadata.title.clone() + &format!(" ({version})")
             } else {
                 metadata.title.clone()
