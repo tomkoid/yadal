@@ -23,10 +23,6 @@ pub struct Cli {
     #[arg(long)]
     pub init_config_file: bool,
 
-    /// Show the supported input formats for a TIDAL URL/ID
-    #[arg(long)]
-    pub print_allowed_formats: bool,
-
     /// TIDAL URL or media ID (track, album, or playlist)
     ///
     /// Examples:

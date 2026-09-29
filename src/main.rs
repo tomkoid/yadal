@@ -17,7 +17,6 @@ use downloader::Downloader;
 use types::MediaType;
 
 use crate::config::expand_home_symbol;
-use crate::parser::SUPPORTED_FORMATS;
 use crate::{
     args::{Cli, MediaTypeArg},
     config::FileConfig,
@@ -37,14 +36,6 @@ async fn main() -> Result<()> {
         let path = FileConfig::init_default_config()?;
 
         println!("generated fully defaulted config file at: {}", path.display());
-        return Ok(());
-    }
-
-    if cli.print_allowed_formats {
-        println!(
-            "Allowed formats:\n{}",
-            SUPPORTED_FORMATS.iter().map(|x| format!("- {x}")).collect::<Vec<_>>().join("\n")
-        );
         return Ok(());
     }
 
@@ -75,7 +66,9 @@ async fn main() -> Result<()> {
     let targets = if let Some(targets) = parse_id_input(&cli.id) {
         targets
     } else {
-        bail!("invalid/malformed TIDAL URL/ID: see `--print-allowed-formats`");
+        bail!(
+            "invalid/malformed TIDAL URL/ID: nearly all formats in a TIDAL URL, as well as a raw ID/UUID are supported"
+        );
     };
 
     // get config from file

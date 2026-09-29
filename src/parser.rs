@@ -4,34 +4,18 @@ use regex::Regex;
 
 use crate::types::MediaType;
 
-pub static SUPPORTED_FORMATS: [&str; 11] = [
-    "https://tidal.com/track/437468401/u", "https://tidal.com/track/437468401?u",
-    "https://tidal.com/track/437468401", "https://tidal.com/album/55130630/u",
-    "https://tidal.com/album/55130630?u", "https://tidal.com/album/55130630",
-    "https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d?u",
-    "https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d",
-    "437468401", "55130630", "aa692128-2954-4fe1-b5a1-4ede1add485d",
-];
-
+const TIDAL_REGEX_UUID: &str = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 static TIDAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
+    Regex::new(&format!(
         r"(?xi)
-        ^
-        (?:
-            https://tidal\.com/
-            (?:
-                (?:track|album)/\d+
-              | playlist/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
-            )
-            (?:[/?]u)?
+        ^(?:
+            (?:https?://)?(?:www\.|listen\.)?tidal\.com/(?:browse/)?
+            (?P<kind>track|album|playlist)/(?P<id>\d+|{TIDAL_REGEX_UUID})
+            (?:/u|\?.*)?/?
           |
-            \d+
-          |
-            [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
-        )
-        $
-        ",
-    ).unwrap()
+            (?P<raw>\d+|{TIDAL_REGEX_UUID})
+        )$"
+    )).unwrap()
 });
 
 pub struct Target {
@@ -41,88 +25,41 @@ pub struct Target {
 
 impl Target {
     pub fn new(id: String, media_type: MediaType) -> Self {
-        Self { id, media_type }
+        Self {
+            id,
+            media_type
+        }
     }
 }
 
-/// Parses TIDAL input (URL or ID) and returns Vec<Media>
-///
-/// See `SUPPORTED_FORMATS` for the supported URL/ID formats.
-pub fn parse_id_input(input: &str) -> Option<Vec<Target>> {
-    let input_target = input
-        .trim()
-        .split(",")
-        .map(|s| s.trim().to_string())
-        .collect::<Vec<String>>();
+fn parse_one(value: &str) -> Option<Target> {
+    let caps = TIDAL_REGEX.captures(value)?;
 
-    let mut media: Vec<Target> = Vec::new();
-
-    for id in &input_target {
-        // Early check a malformed URL/ID
-        if !TIDAL_REGEX.is_match(id) {
-            return None;
-        }
-
-        // Check if it's a URL
-        if id.starts_with("http://") || id.starts_with("https://") {
-            // Parse as URL
-            if let Some(parsed) = parse_tidal_url(id) {
-                media.push(Target::new(parsed.0, parsed.1));
-                continue;
-            }
-        }
-
-        // Not a URL or failed to parse - treat as raw ID
-        // Try to detect type from ID format
-        let media_id = if id.contains('-') {
-            match id.contains("upload/") {
-                true => Target::new(id.to_string(), MediaType::Track), // Uploaded tracks are typically tracks
-                false => Target::new(id.to_string(), MediaType::Playlist), // Other UUIDs are typically playlists
-            }
-        } else if id.parse::<u64>().is_ok() {
-            // Numeric IDs - default to track
-            Target::new(id.to_string(), MediaType::Track)
+    if let Some(raw) = caps.name("raw") {
+        let typ = if raw.as_str().contains('-') {
+            MediaType::Playlist
         } else {
-            // Unknown format - default to track
-            Target::new(id.to_string(), MediaType::Track)
+            MediaType::Track
         };
 
-        media.push(media_id);
+        return Some(Target::new(raw.as_str().to_owned(), typ));
     }
 
-    Some(media)
-}
-
-pub fn parse_tidal_url(url: &str) -> Option<(String, MediaType)> {
-    // Not technically needed (TIDAL links don't have a hashtag usually), but nothing is lost by adding it
-    let url = url.split('#').next().unwrap_or(url);
-
-    // Remove universal link marker(s)
-    let url = url.split('?').next().unwrap_or(url); // ?u
-    let url = url.trim_end_matches("/u").trim_end_matches('/');
-
-    // Split by '/'
-    let parts: Vec<&str> = url.split('/').collect();
-
-    // URL format: https://tidal.com/{type}/{id}
-    // We need at least [..., type, id]
-    if parts.len() < 2 {
-        return None;
-    }
-
-    // Get the last two parts (type and id)
-    let id = parts[parts.len() - 1];
-    let media_type_str = parts[parts.len() - 2];
-
-    let media_type = match media_type_str {
+    let typ = match caps["kind"].to_ascii_lowercase().as_str() {
         "track" => MediaType::Track,
-        "upload" => MediaType::Track,
         "album" => MediaType::Album,
         "playlist" => MediaType::Playlist,
         _ => return None,
     };
 
-    Some((id.to_string(), media_type))
+    Some(Target::new(caps["id"].to_owned(), typ))
+}
+
+/// Parses TIDAL input (URL or ID) and returns Vec<Media>
+///
+/// Supports nearly all formats in a TIDAL URL, as well as a raw ID/UUID
+pub fn parse_id_input(input: &str) -> Option<Vec<Target>> {
+    input.split(',').map(|s| parse_one(s.trim())).collect()
 }
 
 #[cfg(test)]
