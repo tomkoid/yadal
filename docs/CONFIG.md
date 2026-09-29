@@ -75,12 +75,14 @@ Note that not all variables will exist for a certain track, album, or playlist. 
 | bpm | BPM | int |
 | copyright | Copyright text | string |
 | disc_number | Disc/volume number | int |
+| explicit | Explicitness of the track| bool |
+| extension | The file extension of the track | string |
 | id | TIDAL track ID | string |
 | isrc | [Wikipedia](https://en.wikipedia.org/wiki/International_Standard_Recording_Code) | string |
 | initial_key_and_key_scale | Track initial key and key scale | string |
 | number | Track number in album | int |
 | title | Track title | string |
-| track_version | Different variant of the same song, e.g. a remaster or remix | string |
+| version | Different variant of the same song, e.g. a remaster or remix | string |
 | url | TIDAL track URL | string |
 
 ### Album
@@ -88,6 +90,7 @@ Note that not all variables will exist for a certain track, album, or playlist. 
 | Variable | Explanation | Type |
 | -------- | ----------- | ---- |
 | artists | Album artist(s) | list of strings |
+| explicit | Explicitness of the album | bool |
 | release.day | Album release date day | int |
 | release.month | Album release date month | int |
 | release.year | Album release date year | int |
@@ -115,4 +118,5 @@ Note that not all variables will exist for a certain track, album, or playlist. 
 | updated.month | What month the playlist was updated | int |
 | updated.second | What second the TIDAL playlist was updated | int |
 | updated.year | What year the playlist was updated | int |
+| url | Playlist TIDAL URL | string |
 | uuid | Playlist TIDAL UUID | string |
