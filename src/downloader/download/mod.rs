@@ -95,6 +95,7 @@ impl Downloader {
         if !t.isrc { tm.isrc = None};
         if !t.total_discs { tm.total_discs = None};
         if !t.total_tracks { tm.total_tracks = None};
+        if !t.track_number { tm.track_number = None};
         if !t.track_version { tm.track_version = None};
         if !t.url { tm.url = None};
 

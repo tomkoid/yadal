@@ -52,6 +52,7 @@ pub struct Tags {
 	pub title: bool,
 	pub total_discs: bool,
 	pub total_tracks: bool,
+	pub track_number: bool,
 	pub track_version: bool,
 	pub url: bool,
 }
@@ -114,6 +115,7 @@ impl Default for Tags {
 			title: true,
 			total_discs: true,
 			total_tracks: true,
+			track_number: true,
 			track_version: true,
 			url: true,
 		}

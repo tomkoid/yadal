@@ -122,6 +122,7 @@ async fn main() -> Result<()> {
             title: t.title,
             total_discs: t.total_discs,
             total_tracks: t.total_tracks,
+            track_number: t.track_number,
             track_version: t.track_version,
             url: t.url,
         }
