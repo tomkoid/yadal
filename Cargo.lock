@@ -2934,6 +2934,7 @@ dependencies = [
  "futures",
  "indicatif",
  "multitag",
+ "regex",
  "reqwest",
  "sanitize-filename",
  "serde",

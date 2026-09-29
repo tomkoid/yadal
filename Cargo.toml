@@ -30,3 +30,4 @@ symphonia = { version = "0.6.1", default-features = false, features = ["isomp4"]
 toml = "1.1.6"
 serde = "1.0.229"
 thiserror = "2.0.21"
+regex = "1.13.1"

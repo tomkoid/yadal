@@ -1,4 +1,38 @@
+use std::sync::LazyLock;
+
+use regex::Regex;
+
 use crate::types::MediaType;
+
+pub static SUPPORTED_FORMATS: [&str; 11] = [
+    "https://tidal.com/track/437468401/u", "https://tidal.com/track/437468401?u",
+    "https://tidal.com/track/437468401", "https://tidal.com/album/55130630/u",
+    "https://tidal.com/album/55130630?u", "https://tidal.com/album/55130630",
+    "https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d?u",
+    "https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d",
+    "437468401", "55130630", "aa692128-2954-4fe1-b5a1-4ede1add485d",
+];
+
+static TIDAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?xi)
+        ^
+        (?:
+            https://tidal\.com/
+            (?:
+                (?:track|album)/\d+
+              | playlist/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
+            )
+            (?:[/?]u)?
+          |
+            \d+
+          |
+            [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
+        )
+        $
+        ",
+    ).unwrap()
+});
 
 pub struct Target {
     pub id: String,
@@ -13,17 +47,8 @@ impl Target {
 
 /// Parses TIDAL input (URL or ID) and returns Vec<Media>
 ///
-/// Supports:
-/// - https://tidal.com/track/437468401/u
-/// - https://tidal.com/track/437468401?u
-/// - https://tidal.com/track/437468401
-/// - https://tidal.com/album/55130630/u
-/// - https://tidal.com/album/55130630?u
-/// - https://tidal.com/album/55130630
-/// - https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d?u
-/// - https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d
-/// - Raw IDs: 437468401, 55130630, aa692128-2954-4fe1-b5a1-4ede1add485d
-pub fn parse_id_input(input: &str) -> Vec<Target> {
+/// See `SUPPORTED_FORMATS` for the supported URL/ID formats.
+pub fn parse_id_input(input: &str) -> Option<Vec<Target>> {
     let input_target = input
         .trim()
         .split(",")
@@ -33,6 +58,11 @@ pub fn parse_id_input(input: &str) -> Vec<Target> {
     let mut media: Vec<Target> = Vec::new();
 
     for id in &input_target {
+        // Early check a malformed URL/ID
+        if !TIDAL_REGEX.is_match(id) {
+            return None;
+        }
+
         // Check if it's a URL
         if id.starts_with("http://") || id.starts_with("https://") {
             // Parse as URL
@@ -60,7 +90,7 @@ pub fn parse_id_input(input: &str) -> Vec<Target> {
         media.push(media_id);
     }
 
-    media
+    Some(media)
 }
 
 pub fn parse_tidal_url(url: &str) -> Option<(String, MediaType)> {
@@ -102,6 +132,8 @@ mod tests {
     #[test]
     fn test_parse_track_url() {
         let targets = parse_id_input("https://tidal.com/track/437468401");
+        assert!(targets.is_some());
+        let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "437468401");
@@ -111,6 +143,8 @@ mod tests {
     #[test]
     fn test_parse_track_url_with_universal_marker_slash() {
         let targets = parse_id_input("https://tidal.com/track/437468401/u");
+        assert!(targets.is_some());
+        let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "437468401");
@@ -120,6 +154,8 @@ mod tests {
     #[test]
     fn test_parse_track_url_with_universal_marker_question_mark() {
         let targets = parse_id_input("https://tidal.com/track/437468401?u");
+        assert!(targets.is_some());
+        let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "437468401");
@@ -129,6 +165,8 @@ mod tests {
     #[test]
     fn test_parse_album_url() {
         let targets = parse_id_input("https://tidal.com/album/55130630");
+        assert!(targets.is_some());
+        let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "55130630");
@@ -138,6 +176,8 @@ mod tests {
     #[test]
     fn test_parse_album_url_with_universal_marker_slash() {
         let targets = parse_id_input("https://tidal.com/album/55130630/u");
+        assert!(targets.is_some());
+        let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "55130630");
@@ -147,6 +187,8 @@ mod tests {
     #[test]
     fn test_parse_album_url_with_universal_marker_question_mark() {
         let targets = parse_id_input("https://tidal.com/album/55130630?u");
+        assert!(targets.is_some());
+        let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "55130630");
@@ -156,6 +198,8 @@ mod tests {
     #[test]
     fn test_parse_playlist_url() {
         let targets = parse_id_input("https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d");
+        assert!(targets.is_some());
+        let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "aa692128-2954-4fe1-b5a1-4ede1add485d");
@@ -165,6 +209,8 @@ mod tests {
     #[test]
     fn test_parse_playlist_url_with_universal_marker_question_mark() {
         let targets = parse_id_input("https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d?u");
+        assert!(targets.is_some());
+        let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "aa692128-2954-4fe1-b5a1-4ede1add485d");
@@ -174,6 +220,8 @@ mod tests {
     #[test]
     fn test_parse_numeric_id() {
         let targets = parse_id_input("437468401");
+        assert!(targets.is_some());
+        let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "437468401");
@@ -183,6 +231,8 @@ mod tests {
     #[test]
     fn test_parse_uuid_id() {
         let targets = parse_id_input("aa692128-2954-4fe1-b5a1-4ede1add485d");
+        assert!(targets.is_some());
+        let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "aa692128-2954-4fe1-b5a1-4ede1add485d");
@@ -193,6 +243,8 @@ mod tests {
     fn test_parse_multiple_targets() {
         let input = "437468401, aa692128-2954-4fe1-b5a1-4ede1add485d, https://tidal.com/album/55130630";
         let targets = parse_id_input(input);
+        assert!(targets.is_some());
+        let targets = targets.unwrap();
         assert_eq!(targets.len(), 3);
 
         assert_eq!(targets[0].id, "437468401");
@@ -205,4 +257,3 @@ mod tests {
         assert!(matches!(targets[2].media_type, MediaType::Album));
     }
 }
-
