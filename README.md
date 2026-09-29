@@ -131,6 +131,10 @@ Download album items even if they already exist:
 yadal --force https://tidal.com/album/55130630
 ```
 
+## Configuration
+
+See [`CONFIG.md`](docs/CONFIG.md) for a guide on configuring yadal more extensively.
+
 ## Authentication tutorial
 
 On first run, Yadal will initiate a PKCE flow by default:
