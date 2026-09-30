@@ -5,7 +5,7 @@ use std::{
     path::{Component, Path, PathBuf, Prefix},
 };
 
-use crate::{args::QualityArg, template::validate};
+use crate::{args::QualityArg, downloader::template::validate};
 
 const OUTPUT_TEMPLATE: &str = "{{ album.artists[0] }}/{{ album.title }}/{{ \"%02d\"|format(track.number) }} {{ track.title }}{% if track.version %} ({{ track.version }}){% endif %}{% if track.explicit %} (Explicit){% endif %}.{{ track.extension }}";
 

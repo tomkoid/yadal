@@ -9,7 +9,6 @@ mod auth;
 mod config;
 mod downloader;
 mod parser;
-mod template;
 mod tracing;
 mod types;
 

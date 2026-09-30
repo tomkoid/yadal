@@ -11,6 +11,7 @@ pub mod download;
 pub mod entries;
 pub mod rate_limiter;
 pub mod tagging;
+pub mod template;
 pub mod ui;
 pub mod utils;
 
