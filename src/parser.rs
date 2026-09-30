@@ -15,7 +15,8 @@ static TIDAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
           |
             (?P<raw>\d+|{TIDAL_REGEX_UUID})
         )$"
-    )).unwrap()
+    ))
+    .unwrap()
 });
 
 pub struct Target {
@@ -25,10 +26,7 @@ pub struct Target {
 
 impl Target {
     pub fn new(id: String, media_type: MediaType) -> Self {
-        Self {
-            id,
-            media_type
-        }
+        Self { id, media_type }
     }
 }
 
@@ -134,7 +132,8 @@ mod tests {
 
     #[test]
     fn test_parse_playlist_url() {
-        let targets = parse_id_input("https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d");
+        let targets =
+            parse_id_input("https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d");
         assert!(targets.is_some());
         let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
@@ -145,7 +144,8 @@ mod tests {
 
     #[test]
     fn test_parse_playlist_url_with_universal_marker_question_mark() {
-        let targets = parse_id_input("https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d?u");
+        let targets =
+            parse_id_input("https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d?u");
         assert!(targets.is_some());
         let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
@@ -178,7 +178,8 @@ mod tests {
 
     #[test]
     fn test_parse_multiple_targets() {
-        let input = "437468401, aa692128-2954-4fe1-b5a1-4ede1add485d, https://tidal.com/album/55130630";
+        let input =
+            "437468401, aa692128-2954-4fe1-b5a1-4ede1add485d, https://tidal.com/album/55130630";
         let targets = parse_id_input(input);
         assert!(targets.is_some());
         let targets = targets.unwrap();

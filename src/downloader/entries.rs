@@ -29,7 +29,12 @@ impl Downloader {
         println!("album: {}", track.album.as_ref().unwrap().title);
 
         if self
-            .find_existing_track_path(&self.config.download.output_path, &track, &MediaType::Track, None)
+            .find_existing_track_path(
+                &self.config.download.output_path,
+                &track,
+                &MediaType::Track,
+                None,
+            )
             .is_some()
             && !self.config.download.force_download
         {
@@ -102,7 +107,9 @@ impl Downloader {
             .await?;
 
         let target_dir = self
-            .config.download.output_path
+            .config
+            .download
+            .output_path
             .join(sanitize_filename::sanitize(dir_name));
         std::fs::create_dir_all(&target_dir).context("Failed to create media directory")?;
 

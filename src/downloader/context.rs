@@ -36,18 +36,18 @@ pub struct TrackTagMetadata {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TagLyrics {
-	None,
-	UnsyncedOnly(String),
-	SyncedOnly(String),
-	UnsyncedAndSynced(String, String),
+    None,
+    UnsyncedOnly(String),
+    SyncedOnly(String),
+    UnsyncedAndSynced(String, String),
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TagReplayGain {
-	None,
-	TrackOnly(ReplayGainValues),
-	AlbumOnly(ReplayGainValues),
-	TrackAndAlbum(ReplayGainValues, ReplayGainValues),
+    None,
+    TrackOnly(ReplayGainValues),
+    AlbumOnly(ReplayGainValues),
+    TrackAndAlbum(ReplayGainValues, ReplayGainValues),
 }
 
 #[derive(Clone, Debug, PartialEq)]

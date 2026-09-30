@@ -1,5 +1,5 @@
-use std::{fs::create_dir_all, process::exit};
 use std::path::PathBuf;
+use std::{fs::create_dir_all, process::exit};
 
 use anyhow::{Result, bail};
 use clap::Parser;
@@ -21,8 +21,10 @@ use crate::config::expand_home_symbol;
 use crate::{
     args::{Cli, MediaTypeArg},
     config::FileConfig,
-    downloader::{config::DownloaderConfig, config::DownloaderConfigDownload, config::DownloaderConfigTags,
-                 ui::summary::DownloadSummary},
+    downloader::{
+        config::DownloaderConfig, config::DownloaderConfigDownload, config::DownloaderConfigTags,
+        ui::summary::DownloadSummary,
+    },
     parser::parse_id_input,
 };
 
@@ -36,7 +38,10 @@ async fn main() -> Result<()> {
     if cli.init_config_file {
         let path = FileConfig::init_default_config()?;
 
-        println!("generated fully defaulted config file at: {}", path.display());
+        println!(
+            "generated fully defaulted config file at: {}",
+            path.display()
+        );
         return Ok(());
     }
 
@@ -73,7 +78,7 @@ async fn main() -> Result<()> {
     };
 
     // get config from file
-	let config = FileConfig::try_new()?;
+    let config = FileConfig::try_new()?;
 
     let d = &config.download;
     let t = &config.tags;
@@ -119,14 +124,17 @@ async fn main() -> Result<()> {
             track_number: t.track_number,
             track_version: t.track_version,
             url: t.url,
-        }
+        },
     };
 
     // create downloader
     let mut downloader = Downloader::new(client, options.clone());
 
     println!("audio quality: {:?}", options.download.audio_quality);
-    println!("output directory: {}", options.download.output_path.display());
+    println!(
+        "output directory: {}",
+        options.download.output_path.display()
+    );
 
     print_full_line();
 

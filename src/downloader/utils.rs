@@ -1,6 +1,6 @@
 use std::{
-    io::{BufWriter, Read, Seek, Write},
     fs::File,
+    io::{BufWriter, Read, Seek, Write},
     path::{Path, PathBuf},
 };
 
@@ -45,7 +45,8 @@ impl Downloader {
         let output = flac_path.clone();
 
         tokio::task::spawn_blocking(move || remux_mp4_flac_to_flac(&input, &output))
-            .await.context("remux task panicked")??;
+            .await
+            .context("remux task panicked")??;
 
         std::fs::remove_file(output_path)
             .with_context(|| format!("Failed to remove {}", output_path.display()))?;
@@ -124,11 +125,7 @@ impl Downloader {
             _ => unreachable!(),
         };
 
-        format!(
-            "{:02} {}",
-            track_number,
-            sanitize_filename::sanitize(name)
-        )
+        format!("{:02} {}", track_number, sanitize_filename::sanitize(name))
     }
 
     pub async fn fetch_cover_picture(&self, cover_url: &str) -> Result<Picture> {
@@ -216,7 +213,12 @@ fn remux_mp4_flac_to_flac(input: &Path, output: &Path) -> Result<()> {
     hint.with_extension("m4a");
 
     let mut format = symphonia::default::get_probe()
-        .probe(&hint, mss, FormatOptions::default(), MetadataOptions::default())
+        .probe(
+            &hint,
+            mss,
+            FormatOptions::default(),
+            MetadataOptions::default(),
+        )
         .context("error probing mp4 container")?;
 
     let track = format
@@ -239,7 +241,8 @@ fn remux_mp4_flac_to_flac(input: &Path, output: &Path) -> Result<()> {
         bail!("expected 34-byte STREAMINFO body, got {} bytes", dfla.len())
     };
 
-    let out_file = File::create(output).with_context(|| format!("creating {}", output.display()))?;
+    let out_file =
+        File::create(output).with_context(|| format!("creating {}", output.display()))?;
     let mut writer = BufWriter::new(out_file);
 
     writer.write_all(b"fLaC")?;

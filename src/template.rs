@@ -76,8 +76,15 @@ impl Templater {
         value: &Value,
     ) -> Result<(), minijinja::Error> {
         let rendered = value.to_string();
-        let sanitized: String = rendered.chars()
-            .map(|c| if matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|') { '_' } else { c })
+        let sanitized: String = rendered
+            .chars()
+            .map(|c| {
+                if matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|') {
+                    '_'
+                } else {
+                    c
+                }
+            })
             .collect();
 
         write!(out, "{sanitized}").map_err(minijinja::Error::from)
@@ -88,9 +95,7 @@ impl Templater {
         env.set_formatter(Self::sanitizing_formatter);
         env.add_template_owned("template", template.to_owned())?;
 
-        Ok(Self {
-            _env: env,
-        })
+        Ok(Self { _env: env })
     }
 
     pub fn render(&self, ctx: &impl serde::Serialize) -> Result<String, minijinja::Error> {

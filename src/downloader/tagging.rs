@@ -102,7 +102,10 @@ impl Downloader {
         // this implementation could cause empty tags to be written in some cases
         // tidlers only supports getting the first album artist
         // temporary workaround to just set the first one
-        let album_artist = metadata.album_artists.as_ref().map(|album_artist| album_artist[0].clone());
+        let album_artist = metadata
+            .album_artists
+            .as_ref()
+            .map(|album_artist| album_artist[0].clone());
         let has_album_info =
             metadata.album_title.is_some() || metadata.album_artists.is_some() || cover.is_some();
         if has_album_info
@@ -140,7 +143,7 @@ impl Downloader {
             TagLyrics::UnsyncedOnly(unsynced) => tag.set_lyrics(unsynced),
             TagLyrics::SyncedOnly(synced) => tag.set_lyrics(synced),
             TagLyrics::UnsyncedAndSynced(_unsynced, synced) => tag.set_lyrics(synced),
-            TagLyrics::None => {},
+            TagLyrics::None => {}
         }
 
         // bpm
