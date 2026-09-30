@@ -1,6 +1,6 @@
 use std::{ops::RangeInclusive, path::PathBuf};
 
-use clap::{Parser, ValueEnum, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use directories::ProjectDirs;
 use tidlers::client::models::playback::AudioQuality;
 
@@ -33,7 +33,7 @@ pub enum Commands {
     InitConfigFile,
 
     /// Download something from TIDAL
-    Download{
+    Download {
         /// TIDAL URL or media ID (track, album, or playlist)
         ///
         /// Examples: \

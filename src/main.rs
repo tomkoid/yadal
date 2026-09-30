@@ -37,7 +37,7 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Commands::InitConfigFile => cmd_init_config_file(),
-        command @ Commands::Download{..} => cmd_download(command).await,
+        command @ Commands::Download { .. } => cmd_download(command).await,
     }
 }
 
@@ -64,8 +64,24 @@ fn cmd_init_config_file() -> Result<()> {
 }
 
 async fn cmd_download(command: Commands) -> Result<()> {
-    let Commands::Download { id, media_type, quality, output, template, range, parallel, reauth, oauth2, force, no_stream_check, skip_tag, lyrics, skip_transcode, session_file
-    } = command else {
+    let Commands::Download {
+        id,
+        media_type,
+        quality,
+        output,
+        template,
+        range,
+        parallel,
+        reauth,
+        oauth2,
+        force,
+        no_stream_check,
+        skip_tag,
+        lyrics,
+        skip_transcode,
+        session_file,
+    } = command
+    else {
         unreachable!();
     };
 

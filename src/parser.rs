@@ -57,7 +57,10 @@ fn parse_one(value: &str) -> Option<Target> {
 ///
 /// Supports nearly all formats in a TIDAL URL, as well as a raw ID/UUID
 pub fn parse_id_input<S: AsRef<str>>(input: &[S]) -> Option<Vec<Target>> {
-    input.into_iter().map(|s| parse_one(s.as_ref().trim())).collect()
+    input
+        .into_iter()
+        .map(|s| parse_one(s.as_ref().trim()))
+        .collect()
 }
 
 #[cfg(test)]
@@ -178,8 +181,11 @@ mod tests {
 
     #[test]
     fn test_parse_multiple_targets() {
-        let input =
-            ["437468401", "aa692128-2954-4fe1-b5a1-4ede1add485d", "https://tidal.com/album/55130630"];
+        let input = [
+            "437468401",
+            "aa692128-2954-4fe1-b5a1-4ede1add485d",
+            "https://tidal.com/album/55130630",
+        ];
         let targets = parse_id_input(&input);
         assert!(targets.is_some());
         let targets = targets.unwrap();
