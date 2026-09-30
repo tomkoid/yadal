@@ -5,7 +5,7 @@ use serde::Serialize;
 pub struct TemplateContext<'a> {
     track: TemplateTrackCtx<'a>,
     album: TemplateAlbumCtx<'a>,
-    playlist: TemplatePlaylistCtx<'a>,
+    playlist: Option<TemplatePlaylistCtx<'a>>,
 }
 
 #[derive(Serialize)]
