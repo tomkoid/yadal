@@ -1,6 +1,6 @@
 use std::{ops::RangeInclusive, path::PathBuf};
 
-use clap::{Parser, ValueEnum};
+use clap::{Parser, ValueEnum, Subcommand};
 use directories::ProjectDirs;
 use tidlers::client::models::playback::AudioQuality;
 
@@ -16,82 +16,90 @@ fn default_session_file() -> PathBuf {
 #[command(name = "tidal-downloader")]
 #[command(author, version, about = "Download music from TIDAL", long_about = None)]
 pub struct Cli {
-    /// Generate a configuration file with everything explicitly set to the default
-    ///
-    /// Note that this file may become invalid in the future if left unchecked, it is better practice to remove
-    /// config items that are just the default
-    #[arg(long)]
-    pub init_config_file: bool,
-
-    /// TIDAL URL or media ID (track, album, or playlist)
-    ///
-    /// Examples:
-    ///   https://tidal.com/track/437468401
-    ///   https://tidal.com/album/55130630
-    ///   https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d
-    ///   437468401
-    #[arg(value_name = "URL_OR_ID")]
-    pub id: String,
-
-    /// Type of media to download
-    #[arg(short, long, value_enum, default_value = "auto")]
-    pub media_type: MediaTypeArg,
-
-    /// Audio quality
-    #[arg(short, long, value_enum)]
-    pub quality: Option<QualityArg>,
-
-    /// Output directory
-    #[arg(short, long, default_value = None)]
-    pub output: Option<PathBuf>,
-
-    /// Output path template in the output directory
-    #[arg(short, long, default_value = None)]
-    pub template: Option<String>,
-
-    /// Range (e.g., 1-10 for tracks 1 to 10, or 5 for track 5)
-    #[arg(short, long, value_parser = parse_range)]
-    pub range: Option<RangeInclusive<usize>>,
-
-    /// Maximum parallel downloads
-    #[arg(short, long)]
-    pub parallel: Option<usize>,
-
-    /// Force re-authentication
-    #[arg(long)]
-    pub reauth: bool,
-
-    /// Use legacy OAuth2 device flow instead of PKCE
-    #[arg(long)]
-    pub oauth2: bool,
-
     /// Enable tracing logs from Tidlers
     #[arg(long)]
     pub trace: bool,
 
-    /// Redownload even if matching local file exists
-    #[arg(short, long, num_args = 0..=1, default_missing_value = "true")]
-    pub force: Option<bool>,
+    #[command(subcommand)]
+    pub command: Commands,
+}
 
-    /// Skip checking if the stream is available before downloading
-    #[arg(long, num_args = 0..=1, default_missing_value = "true")]
-    pub no_stream_check: Option<bool>,
+#[derive(Debug, Subcommand)]
+pub enum Commands {
+    /// Generate a configuration file with everything explicitly set to the default
+    ///
+    /// Note that this file may become invalid in the future if left unchecked, it is better practice to remove
+    /// config items that are their default values
+    InitConfigFile,
 
-    /// Skip tagging
-    #[arg(short, long, num_args = 0..=1, default_missing_value = "true")]
-    pub skip_tag: Option<bool>,
+    /// Download something from TIDAL
+    Download{
+        /// TIDAL URL or media ID (track, album, or playlist)
+        ///
+        /// Examples: \
+        /// - https://tidal.com/track/437468401 \
+        /// - https://tidal.com/album/55130630 \
+        /// - https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d \
+        /// - 437468401
+        #[arg(value_name = "URL_OR_ID", required = true)]
+        id: Vec<String>,
 
-    /// Add lyrics to the downloaded files (if available)
-    #[arg(short, long, num_args = 0..=1, default_missing_value = "true")]
-    pub lyrics: Option<Lyrics>,
+        /// Type of media to download
+        #[arg(short, long, value_enum, default_value = "auto")]
+        media_type: MediaTypeArg,
 
-    /// Skip transcoding and use the original file (m4a most of the time)
-    #[arg(long, num_args = 0..=1, default_missing_value = "true")]
-    pub skip_transcode: Option<bool>,
+        /// Audio quality
+        #[arg(short, long, value_enum)]
+        quality: Option<QualityArg>,
 
-    /// Session file path
-    #[arg(long, value_parser, default_value_os_t = default_session_file())]
-    pub session_file: PathBuf,
+        /// Output directory
+        #[arg(short, long, default_value = None)]
+        output: Option<PathBuf>,
+
+        /// Output path template in the output directory
+        #[arg(short, long, default_value = None)]
+        template: Option<String>,
+
+        /// Range (e.g., 1-10 for tracks 1 to 10, or 5 for track 5)
+        #[arg(short, long, value_parser = parse_range)]
+        range: Option<RangeInclusive<usize>>,
+
+        /// Maximum parallel downloads
+        #[arg(short, long)]
+        parallel: Option<usize>,
+
+        /// Force re-authentication
+        #[arg(long)]
+        reauth: bool,
+
+        /// Use legacy OAuth2 device flow instead of PKCE
+        #[arg(long)]
+        oauth2: bool,
+
+        /// Redownload even if matching local file exists
+        #[arg(short, long, num_args = 0..=1, default_missing_value = "true")]
+        force: Option<bool>,
+
+        /// Skip checking if the stream is available before downloading
+        #[arg(long, num_args = 0..=1, default_missing_value = "true")]
+        no_stream_check: Option<bool>,
+
+        /// Skip tagging
+        #[arg(short, long, num_args = 0..=1, default_missing_value = "true")]
+        skip_tag: Option<bool>,
+
+        /// Add lyrics to the downloaded files (if available)
+        #[arg(short, long, num_args = 0..=1, default_missing_value = "true")]
+        lyrics: Option<Lyrics>,
+
+        /// Skip transcoding and use the original file (m4a most of the time)
+        #[arg(long, num_args = 0..=1, default_missing_value = "true")]
+        skip_transcode: Option<bool>,
+
+        /// Session file path
+        #[arg(long, value_parser, default_value_os_t = default_session_file())]
+        session_file: PathBuf,
+    },
 }
 
 #[derive(

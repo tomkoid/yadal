@@ -56,8 +56,8 @@ fn parse_one(value: &str) -> Option<Target> {
 /// Parses TIDAL input (URL or ID) and returns Vec<Media>
 ///
 /// Supports nearly all formats in a TIDAL URL, as well as a raw ID/UUID
-pub fn parse_id_input(input: &str) -> Option<Vec<Target>> {
-    input.split(',').map(|s| parse_one(s.trim())).collect()
+pub fn parse_id_input<S: AsRef<str>>(input: &[S]) -> Option<Vec<Target>> {
+    input.into_iter().map(|s| parse_one(s.as_ref().trim())).collect()
 }
 
 #[cfg(test)]
@@ -66,7 +66,7 @@ mod tests {
 
     #[test]
     fn test_parse_track_url() {
-        let targets = parse_id_input("https://tidal.com/track/437468401");
+        let targets = parse_id_input(&["https://tidal.com/track/437468401"]);
         assert!(targets.is_some());
         let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
@@ -77,7 +77,7 @@ mod tests {
 
     #[test]
     fn test_parse_track_url_with_universal_marker_slash() {
-        let targets = parse_id_input("https://tidal.com/track/437468401/u");
+        let targets = parse_id_input(&["https://tidal.com/track/437468401/u"]);
         assert!(targets.is_some());
         let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
@@ -88,7 +88,7 @@ mod tests {
 
     #[test]
     fn test_parse_track_url_with_universal_marker_question_mark() {
-        let targets = parse_id_input("https://tidal.com/track/437468401?u");
+        let targets = parse_id_input(&["https://tidal.com/track/437468401?u"]);
         assert!(targets.is_some());
         let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
@@ -99,7 +99,7 @@ mod tests {
 
     #[test]
     fn test_parse_album_url() {
-        let targets = parse_id_input("https://tidal.com/album/55130630");
+        let targets = parse_id_input(&["https://tidal.com/album/55130630"]);
         assert!(targets.is_some());
         let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
@@ -110,7 +110,7 @@ mod tests {
 
     #[test]
     fn test_parse_album_url_with_universal_marker_slash() {
-        let targets = parse_id_input("https://tidal.com/album/55130630/u");
+        let targets = parse_id_input(&["https://tidal.com/album/55130630/u"]);
         assert!(targets.is_some());
         let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
@@ -121,7 +121,7 @@ mod tests {
 
     #[test]
     fn test_parse_album_url_with_universal_marker_question_mark() {
-        let targets = parse_id_input("https://tidal.com/album/55130630?u");
+        let targets = parse_id_input(&["https://tidal.com/album/55130630?u"]);
         assert!(targets.is_some());
         let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
@@ -133,7 +133,7 @@ mod tests {
     #[test]
     fn test_parse_playlist_url() {
         let targets =
-            parse_id_input("https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d");
+            parse_id_input(&["https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d"]);
         assert!(targets.is_some());
         let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
@@ -145,7 +145,7 @@ mod tests {
     #[test]
     fn test_parse_playlist_url_with_universal_marker_question_mark() {
         let targets =
-            parse_id_input("https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d?u");
+            parse_id_input(&["https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d?u"]);
         assert!(targets.is_some());
         let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
@@ -156,7 +156,7 @@ mod tests {
 
     #[test]
     fn test_parse_numeric_id() {
-        let targets = parse_id_input("437468401");
+        let targets = parse_id_input(&["437468401"]);
         assert!(targets.is_some());
         let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
@@ -167,7 +167,7 @@ mod tests {
 
     #[test]
     fn test_parse_uuid_id() {
-        let targets = parse_id_input("aa692128-2954-4fe1-b5a1-4ede1add485d");
+        let targets = parse_id_input(&["aa692128-2954-4fe1-b5a1-4ede1add485d"]);
         assert!(targets.is_some());
         let targets = targets.unwrap();
         assert_eq!(targets.len(), 1);
@@ -179,8 +179,8 @@ mod tests {
     #[test]
     fn test_parse_multiple_targets() {
         let input =
-            "437468401, aa692128-2954-4fe1-b5a1-4ede1add485d, https://tidal.com/album/55130630";
-        let targets = parse_id_input(input);
+            ["437468401", "aa692128-2954-4fe1-b5a1-4ede1add485d", "https://tidal.com/album/55130630"];
+        let targets = parse_id_input(&input);
         assert!(targets.is_some());
         let targets = targets.unwrap();
         assert_eq!(targets.len(), 3);

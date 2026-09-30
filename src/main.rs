@@ -16,6 +16,7 @@ use auth::{authenticate, load_or_authenticate};
 use downloader::Downloader;
 use types::MediaType;
 
+use crate::args::Commands;
 use crate::config::expand_home_symbol;
 use crate::{
     args::{Cli, MediaTypeArg},
@@ -34,22 +35,46 @@ async fn main() -> Result<()> {
         tracing::configure();
     }
 
-    if cli.init_config_file {
-        let path = FileConfig::init_default_config()?;
-
-        println!(
-            "generated fully defaulted config file at: {}",
-            path.display()
-        );
-        return Ok(());
+    match cli.command {
+        Commands::InitConfigFile => cmd_init_config_file(),
+        command @ Commands::Download{..} => cmd_download(command).await,
     }
+}
+
+fn print_full_line() {
+    match crossterm::terminal::size() {
+        Ok((width, _)) => {
+            println!("{}", "=".repeat(width as usize));
+        }
+        Err(_) => {
+            println!("{}", "=".repeat(15));
+        }
+    }
+}
+
+fn cmd_init_config_file() -> Result<()> {
+    let path = FileConfig::init_default_config()?;
+
+    println!(
+        "generated fully defaulted config file at: {}",
+        path.display()
+    );
+
+    Ok(())
+}
+
+async fn cmd_download(command: Commands) -> Result<()> {
+    let Commands::Download { id, media_type, quality, output, template, range, parallel, reauth, oauth2, force, no_stream_check, skip_tag, lyrics, skip_transcode, session_file
+    } = command else {
+        unreachable!();
+    };
 
     // authenticate
-    let mut client = if cli.reauth {
+    let mut client = if reauth {
         println!("forcing re-authentication...\n");
-        authenticate(&cli.session_file, cli.oauth2).await?
+        authenticate(&session_file, oauth2).await?
     } else {
-        load_or_authenticate(&cli.session_file, cli.oauth2).await?
+        load_or_authenticate(&session_file, oauth2).await?
     };
 
     // refresh user info, thus validating the session and ensuring we have the latest user info
@@ -60,15 +85,14 @@ async fn main() -> Result<()> {
         user_info.user_id, user_info.username
     );
 
-    if cli.id.contains("upload") {
-        eprintln!(
+    if id.iter().any(|s| s.contains("upload")) {
+        bail!(
             "error: uploads are not supported yet. please provide a valid track, album, or playlist ID."
         );
-        exit(1);
     }
 
     // parse IDs and determine media type
-    let targets = if let Some(targets) = parse_id_input(&cli.id) {
+    let targets = if let Some(targets) = parse_id_input(&id) {
         targets
     } else {
         bail!(
@@ -94,18 +118,18 @@ async fn main() -> Result<()> {
 
     let options = DownloaderConfig {
         download: DownloaderConfigDownload {
-            audio_quality: cli.quality.unwrap_or(d.audio_quality).into(),
-            output_path: cli.output.unwrap_or(download_path.clone()),
-            output_template: cli.template.unwrap_or(d.output_template.clone()),
-            force_download: cli.force.unwrap_or(d.force_download),
-            no_stream_check: cli.no_stream_check.unwrap_or(d.no_stream_check),
-            max_parallel: cli.parallel.unwrap_or(d.max_parallel),
-            range: cli.range,
-            skip_transcode: cli.skip_transcode.unwrap_or(d.skip_transcode),
+            audio_quality: quality.unwrap_or(d.audio_quality).into(),
+            output_path: output.unwrap_or(download_path.clone()),
+            output_template: template.unwrap_or(d.output_template.clone()),
+            force_download: force.unwrap_or(d.force_download),
+            no_stream_check: no_stream_check.unwrap_or(d.no_stream_check),
+            max_parallel: parallel.unwrap_or(d.max_parallel),
+            range,
+            skip_transcode: skip_transcode.unwrap_or(d.skip_transcode),
         },
         tags: DownloaderConfigTags {
-            enable: !(cli.skip_tag.unwrap_or(!t.enable)),
-            lyrics: cli.lyrics.unwrap_or(t.lyrics.clone().into()).into(),
+            enable: !(skip_tag.unwrap_or(!t.enable)),
+            lyrics: lyrics.unwrap_or(t.lyrics.clone().into()).into(),
             album: t.album,
             album_artist: t.album_artist,
             artist: t.artist,
@@ -141,7 +165,7 @@ async fn main() -> Result<()> {
     for target in targets {
         downloader.reset_state();
 
-        let media_type = match cli.media_type {
+        let media_type = match media_type {
             MediaTypeArg::Track => MediaType::Track,
             MediaTypeArg::Album => MediaType::Album,
             MediaTypeArg::Playlist => MediaType::Playlist,
@@ -190,15 +214,4 @@ async fn main() -> Result<()> {
 
     total_summary.print();
     exit(total_summary.get_exit_code());
-}
-
-fn print_full_line() {
-    match crossterm::terminal::size() {
-        Ok((width, _)) => {
-            println!("{}", "=".repeat(width as usize));
-        }
-        Err(_) => {
-            println!("{}", "=".repeat(15));
-        }
-    }
 }
