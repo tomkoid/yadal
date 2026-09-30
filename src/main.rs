@@ -69,6 +69,21 @@ async fn cmd_download(command: Commands) -> Result<()> {
         unreachable!();
     };
 
+    if id.iter().any(|s| s.contains("upload")) {
+        bail!(
+            "error: uploads are not supported yet. please provide a valid track, album, or playlist ID."
+        );
+    }
+
+    // parse IDs and determine media type
+    let targets = if let Some(targets) = parse_id_input(&id) {
+        targets
+    } else {
+        bail!(
+            "invalid/malformed TIDAL URL/ID: nearly all formats in a TIDAL URL, as well as a raw ID/UUID are supported"
+        );
+    };
+
     // authenticate
     let mut client = if reauth {
         println!("forcing re-authentication...\n");
@@ -84,21 +99,6 @@ async fn cmd_download(command: Commands) -> Result<()> {
         "logged in as: {} ({})\n",
         user_info.user_id, user_info.username
     );
-
-    if id.iter().any(|s| s.contains("upload")) {
-        bail!(
-            "error: uploads are not supported yet. please provide a valid track, album, or playlist ID."
-        );
-    }
-
-    // parse IDs and determine media type
-    let targets = if let Some(targets) = parse_id_input(&id) {
-        targets
-    } else {
-        bail!(
-            "invalid/malformed TIDAL URL/ID: nearly all formats in a TIDAL URL, as well as a raw ID/UUID are supported"
-        );
-    };
 
     // get config from file
     let config = FileConfig::try_new()?;
