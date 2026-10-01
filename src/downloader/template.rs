@@ -3,66 +3,66 @@ use serde::Serialize;
 
 #[derive(Serialize)]
 pub struct TemplateContext<'a> {
-    track: TemplateTrackCtx<'a>,
-    album: TemplateAlbumCtx<'a>,
-    playlist: Option<TemplatePlaylistCtx<'a>>,
+    pub track: TemplateTrackCtx<'a>,
+    pub album: TemplateAlbumCtx<'a>,
+    pub playlist: Option<TemplatePlaylistCtx<'a>>,
 }
 
 #[derive(Serialize)]
 pub struct TemplateTrackCtx<'a> {
-    artists: Vec<&'a str>,
-    bpm: Option<f32>,
-    copyright: Option<&'a str>,
-    explicit: bool,
-    extension: &'a str,
-    id: &'a str,
-    isrc: Option<&'a str>,
-    initial_key_and_key_scale: Option<&'a str>,
-    number: u32,
-    title: &'a str,
-    version: Option<&'a str>,
-    url: &'a str,
+    pub artists: Vec<&'a str>,
+    pub bpm: Option<f32>,
+    pub copyright: Option<&'a str>,
+    pub explicit: bool,
+    pub extension: &'a str,
+    pub id: &'a str,
+    pub isrc: Option<&'a str>,
+    pub initial_key_and_key_scale: Option<&'a str>,
+    pub number: u32,
+    pub title: &'a str,
+    pub version: Option<&'a str>,
+    pub url: &'a str,
 }
 
 #[derive(Serialize)]
 pub struct TemplateAlbumCtx<'a> {
-    artists: Vec<&'a str>,
-    explicit: bool,
-    release: DateYmd,
-    id: &'a str,
-    title: &'a str,
+    pub artists: Vec<&'a str>,
+    pub explicit: bool,
+    pub release: TidalDateYmd,
+    pub id: &'a str,
+    pub title: &'a str,
     // temporary Option
-    total_discs: Option<u32>,
+    pub total_discs: Option<u32>,
     // temporary Option
-    total_tracks: Option<u32>,
-    url: &'a str,
+    pub total_tracks: Option<u32>,
+    pub url: &'a str,
 }
 
 #[derive(Serialize)]
 pub struct TemplatePlaylistCtx<'a> {
-    created: DateYmdhms,
-    index: u32,
-    title: &'a str,
-    update: DateYmdhms,
-    url: &'a str,
-    uuid: &'a str,
+    pub created: TidalDateYmdhms,
+    pub index: u32,
+    pub title: &'a str,
+    pub update: TidalDateYmdhms,
+    pub url: &'a str,
+    pub uuid: &'a str,
 }
 
 #[derive(Serialize)]
-pub struct DateYmd {
-    day: Option<u64>,
-    month: Option<u64>,
-    year: u64,
+pub struct TidalDateYmd {
+    pub day: Option<u64>,
+    pub month: Option<u64>,
+    pub year: u64,
 }
 
 #[derive(Serialize)]
-pub struct DateYmdhms {
-    day: u64,
-    month: u64,
-    year: u64,
-    hour: u64,
-    minute: u64,
-    second: u64,
+pub struct TidalDateYmdhms {
+    pub day: u64,
+    pub month: u64,
+    pub year: u64,
+    pub hour: u64,
+    pub minute: u64,
+    pub second: u64,
 }
 
 pub struct Templater {
