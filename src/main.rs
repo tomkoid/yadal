@@ -98,22 +98,6 @@ async fn cmd_download(command: Commands) -> Result<()> {
         bail!("invalid or malformed TIDAL URL/ID.");
     };
 
-    // authenticate
-    let mut client = if reauth {
-        println!("forcing re-authentication...\n");
-        authenticate(&session_file, oauth2).await?
-    } else {
-        load_or_authenticate(&session_file, oauth2).await?
-    };
-
-    // refresh user info, thus validating the session and ensuring we have the latest user info
-    client.refresh_user_info().await?;
-    let user_info = client.user_info.as_ref().unwrap();
-    println!(
-        "logged in as: {} ({})\n",
-        user_info.user_id, user_info.username
-    );
-
     // get config from file
     let config = FileConfig::try_new()?;
 
@@ -163,6 +147,22 @@ async fn cmd_download(command: Commands) -> Result<()> {
             url: t.url,
         },
     };
+
+    // authenticate
+    let mut client = if reauth {
+        println!("forcing re-authentication...\n");
+        authenticate(&session_file, oauth2).await?
+    } else {
+        load_or_authenticate(&session_file, oauth2).await?
+    };
+
+    // refresh user info, thus validating the session and ensuring we have the latest user info
+    client.refresh_user_info().await?;
+    let user_info = client.user_info.as_ref().unwrap();
+    println!(
+        "logged in as: {} ({})\n",
+        user_info.user_id, user_info.username
+    );
 
     // create downloader
     let mut downloader = Downloader::new(client, options.clone());
