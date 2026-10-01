@@ -35,7 +35,9 @@ impl Downloader {
             self.download_segment(init_url).await?
         } else {
             if let Some(pb) = pb {
-                pb.set_message("{track_title}: No initialization segment found, skipping...");
+                pb.set_message(format!(
+                    "{track_title}: No initialization segment found, skipping..."
+                ));
                 tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             }
 
