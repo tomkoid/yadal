@@ -1,10 +1,13 @@
 use std::{
+    env::temp_dir,
     fs::File,
-    io::{BufWriter, Read, Seek, Write},
+    io::{self, BufWriter, Read, Seek, Write},
     path::{Path, PathBuf},
+    process,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::{downloader::Downloader, types::MediaType};
+use crate::downloader::Downloader;
 
 use anyhow::{Context, Result, bail};
 use multitag::data::Picture;
@@ -77,57 +80,6 @@ impl Downloader {
         Ok(declared.to_string())
     }
 
-    pub fn find_existing_track_path(
-        &self,
-        output_dir: &Path,
-        track: &Track,
-        media_type: &MediaType,
-        index: Option<usize>, // only used for playlists to determine track number
-    ) -> Option<PathBuf> {
-        let base_name = self.get_track_base_name(track, media_type, index);
-
-        for ext in ["flac", "m4a", "mp3"] {
-            let path = output_dir.join(format!("{}.{}", base_name, ext));
-            if path.exists() {
-                return Some(path);
-            }
-        }
-        None
-    }
-
-    /// get the base name for a track file, including track number and sanitized title
-    /// this will be useful in the future if we want to support custom formatting of track file
-    /// names.
-    /// This function temporarily includes the track version alongside the title, this will be changed
-    /// when output templating gets implemented
-    pub fn get_track_base_name(
-        &self,
-        track: &Track,
-        media_type: &MediaType,
-        index: Option<usize>,
-    ) -> String {
-        let name = if let Some(ref version) = track.version {
-            track.title.clone() + &format!(" ({version})")
-        } else {
-            track.title.clone()
-        };
-
-        if MediaType::Track == *media_type {
-            return sanitize_filename::sanitize(name);
-        }
-
-        // use album original track numbers and for playlists use their positional index
-        let track_number = match media_type {
-            MediaType::Album => track.track_number,
-            MediaType::Playlist => {
-                (index.expect("track is in playlist but no index supplied") + 1) as u32
-            }
-            _ => unreachable!(),
-        };
-
-        format!("{:02} {}", track_number, sanitize_filename::sanitize(name))
-    }
-
     pub async fn fetch_cover_picture(&self, cover_url: &str) -> Result<Picture> {
         let response = self
             .http_client
@@ -138,7 +90,7 @@ impl Downloader {
             .context("Failed to request cover art")?;
 
         if !response.status().is_success() {
-            anyhow::bail!("Cover art HTTP {}", response.status());
+            bail!("Cover art HTTP {}", response.status());
         }
 
         let mime_type = response
@@ -157,7 +109,7 @@ impl Downloader {
         Ok(Picture { data, mime_type })
     }
 
-    pub fn get_file_extension(&self, playback_info: &TrackPlaybackInfoResponse) -> &str {
+    pub fn get_file_extension(playback_info: &TrackPlaybackInfoResponse) -> &str {
         // Determine file extension based on container/MIME type
         if let Some(mime_type) = playback_info.get_mime_type()
             && let Some(ext) = Self::extension_from_mime_type(&mime_type)
@@ -196,7 +148,7 @@ impl Downloader {
 
     pub fn check_allow_streaming(&self, track: &Track) -> Result<()> {
         if !track.allow_streaming && !self.config.download.no_stream_check {
-            anyhow::bail!("track is not available for streaming (use -f to force download)");
+            bail!("track is not available for streaming (use -f to force download)");
         }
 
         Ok(())
@@ -270,4 +222,16 @@ fn remux_mp4_flac_to_flac(input: &Path, output: &Path) -> Result<()> {
     writer.flush()?;
 
     Ok(())
+}
+
+pub fn make_temp_file(prefix: &str) -> io::Result<PathBuf> {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let file = temp_dir().join(format!("{prefix}-{}-{nanos}", process::id()));
+
+    File::create(&file)?;
+
+    return Ok(file);
 }

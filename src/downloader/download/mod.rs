@@ -10,6 +10,7 @@ use crate::{
     config::{LyricsMode, ReplayGainMode},
     downloader::{
         Downloader,
+        config::DownloaderConfigTags,
         context::{AlbumTagContext, ReplayGainValues, TagLyrics, TagReplayGain, TrackTagMetadata},
     },
     types::MediaType,
@@ -41,11 +42,10 @@ impl Downloader {
         &self,
         request: DownloadTrackRequest<'_>,
     ) -> Result<()> {
-        let extension = self.get_file_extension(request.playback_info);
-        let base_name = self.get_track_base_name(request.track, &request.media_type, request.index);
         let output_path = request
             .output_path
-            .join(format!("{}.{}", base_name, extension));
+            .join(request.track.title.clone())
+            .with_extension(Self::get_file_extension(&request.playback_info));
 
         match &request.playback_info.manifest_parsed {
             Some(ManifestType::Dash(dash)) => {
@@ -64,7 +64,7 @@ impl Downloader {
             }
         }
 
-        let output_path = match self.config.download.skip_transcode {
+        let temp_output_path = match self.config.download.skip_transcode {
             true => output_path,
             false => {
                 self.maybe_convert_flac_container(&output_path, request.playback_info)
@@ -72,160 +72,166 @@ impl Downloader {
             }
         };
 
-        // exit here so that the tags section is less indented
-        if !self.config.tags.enable {
-            return Ok(());
+        if self.config.tags.enable {
+            let tag_metadata = self.make_full_track_tags(&request).await;
+            let configured_tag_metadata =
+                Self::apply_config_to_tags(&self.config.tags, tag_metadata).await;
+
+            self.tag_downloaded_file(&temp_output_path, &configured_tag_metadata)
+                .await
+                .context("Failed to tag downloaded file")?;
         }
 
-        let mut tag_metadata = TrackTagMetadata::from_track(request.track, request.album_context);
+        Ok(())
+    }
 
-        let t = &self.config.tags;
-        let tm = &mut tag_metadata;
-
-        tm.tag_title = self.config.tags.title;
-        if !t.album {
-            tm.album_title = None
-        };
-        if !t.album_artist {
-            tm.album_artists = None
-        };
-        if !t.artist {
-            tm.artists = None
-        };
-        if !t.bpm {
-            tm.bpm = None
-        };
-        if !t.copyright {
-            tm.copyright = None
-        };
-        if !t.cover {
-            tm.cover_url = None
-        };
-        if !t.date {
-            tm.release_date = None
-        };
-        if !t.disc_number {
-            tm.disc_number = None
-        };
-        if !t.initial_key_and_key_scale {
-            tm.key = None;
-            tm.key_scale = None;
-        };
-        if !t.isrc {
-            tm.isrc = None
-        };
-        if !t.total_discs {
-            tm.total_discs = None
-        };
-        if !t.total_tracks {
-            tm.total_tracks = None
-        };
-        if !t.track_number {
-            tm.track_number = None
-        };
-        if !t.track_version {
-            tm.track_version = None
-        };
-        if !t.url {
-            tm.url = None
-        };
+    async fn make_full_track_tags(&self, request: &DownloadTrackRequest<'_>) -> TrackTagMetadata {
+        let mut tm = TrackTagMetadata::from_track(request.track, &request.album_context);
 
         // handle lyrics
         'once: {
-            if !matches!(t.lyrics, LyricsMode::None) {
-                let lyrics = match self
-                    .tidal_client
-                    .get_track_lyrics(request.track.id.to_string())
-                    .await
-                {
-                    Ok(lyrics_res) => lyrics_res,
-                    Err(_) => break 'once,
-                };
-
-                match t.lyrics {
-                    LyricsMode::UnsyncedOnly => tm.lyrics = TagLyrics::UnsyncedOnly(lyrics.lyrics),
-                    LyricsMode::SyncedOnly => {
-                        if let Some(synced_lyrics) = lyrics.subtitles {
-                            tm.lyrics = TagLyrics::SyncedOnly(synced_lyrics);
-                        }
-                    }
-                    LyricsMode::UnsyncedAndSynced => {
-                        if let Some(synced_lyrics) = lyrics.subtitles {
-                            tm.lyrics = TagLyrics::UnsyncedAndSynced(lyrics.lyrics, synced_lyrics);
-                        } else {
-                            // don't fail if we can't get synced lyrics
-                            tm.lyrics = TagLyrics::UnsyncedOnly(lyrics.lyrics);
-                        }
-                    }
-                    _ => unreachable!(),
-                }
-            }
-        }
-
-        if !matches!(t.replaygain, ReplayGainMode::None) {
-            let rp_gain_track = fmt_gain(request.playback_info.track_replay_gain);
-            let rp_peak_track = fmt_peak(request.playback_info.track_peak_amplitude);
-            let rp_gain_album = fmt_gain(request.playback_info.album_replay_gain);
-            let rp_peak_album = fmt_peak(request.playback_info.album_peak_amplitude);
-
-            let replaygainmode = match t.replaygain {
-                ReplayGainMode::TrackOnly => {
-                    if let Some(gain) = rp_gain_track
-                        && let Some(peak) = rp_peak_track
-                    {
-                        TagReplayGain::TrackOnly(ReplayGainValues { gain, peak })
-                    } else {
-                        TagReplayGain::None
-                    }
-                }
-                ReplayGainMode::AlbumOnly => {
-                    if let Some(gain) = rp_gain_album
-                        && let Some(peak) = rp_peak_album
-                    {
-                        TagReplayGain::AlbumOnly(ReplayGainValues { gain, peak })
-                    } else {
-                        TagReplayGain::None
-                    }
-                }
-                ReplayGainMode::TrackAndAlbum => {
-                    let mut track_values: Option<ReplayGainValues> = None;
-                    let mut album_values: Option<ReplayGainValues> = None;
-
-                    if let Some(gain) = rp_gain_track
-                        && let Some(peak) = rp_peak_track
-                    {
-                        track_values = Some(ReplayGainValues { gain, peak });
-                    }
-
-                    if let Some(gain) = rp_gain_album
-                        && let Some(peak) = rp_peak_album
-                    {
-                        album_values = Some(ReplayGainValues { gain, peak });
-                    }
-
-                    if let Some(track_values) = &track_values
-                        && let Some(album_values) = &album_values
-                    {
-                        TagReplayGain::TrackAndAlbum(track_values.clone(), album_values.clone())
-                    } else if let Some(track_values) = track_values {
-                        TagReplayGain::TrackOnly(track_values)
-                    } else if let Some(album_values) = album_values {
-                        TagReplayGain::AlbumOnly(album_values)
-                    } else {
-                        TagReplayGain::None
-                    }
-                }
-                _ => unreachable!(),
+            let lyrics_res = match self
+                .tidal_client
+                .get_track_lyrics(request.track.id.to_string())
+                .await
+            {
+                Ok(lyrics_res) => lyrics_res,
+                Err(_) => break 'once,
             };
 
-            tm.replaygain = replaygainmode;
+            tm.lyrics = if let Some(synced_lyrics) = lyrics_res.subtitles {
+                TagLyrics::UnsyncedAndSynced(lyrics_res.lyrics, synced_lyrics)
+            } else {
+                TagLyrics::UnsyncedOnly(lyrics_res.lyrics)
+            };
         }
 
-        self.tag_downloaded_file(&output_path, &tag_metadata)
-            .await
-            .context("Failed to tag downloaded file")?;
+        // handle ReplayGain
+        let rp_gain_track_values = if let Some(gain) =
+            fmt_gain(request.playback_info.track_replay_gain)
+            && let Some(peak) = fmt_peak(request.playback_info.track_peak_amplitude)
+        {
+            Some(ReplayGainValues { gain, peak })
+        } else {
+            None
+        };
 
-        Ok(())
+        let rp_gain_album_values = if let Some(gain) =
+            fmt_gain(request.playback_info.album_replay_gain)
+            && let Some(peak) = fmt_peak(request.playback_info.album_peak_amplitude)
+        {
+            Some(ReplayGainValues { gain, peak })
+        } else {
+            None
+        };
+
+        tm.replaygain = if let Some(ref rp_gain_track_values) = rp_gain_track_values
+            && let Some(rp_gain_album_values) = rp_gain_album_values
+        {
+            TagReplayGain::TrackAndAlbum(rp_gain_track_values.clone(), rp_gain_album_values)
+        } else if let Some(rp_gain_track_values) = rp_gain_track_values {
+            TagReplayGain::TrackOnly(rp_gain_track_values.clone())
+        } else if let Some(rp_gain_album_values) = rp_gain_album_values {
+            TagReplayGain::AlbumOnly(rp_gain_album_values)
+        } else {
+            TagReplayGain::None
+        };
+        tm
+    }
+
+    // give the tags to the function and then get it back
+    async fn apply_config_to_tags(
+        tag_config: &DownloaderConfigTags,
+        mut tag_metadata: TrackTagMetadata,
+    ) -> TrackTagMetadata {
+        let t = tag_config;
+        let tm = &mut tag_metadata;
+
+        tm.tag_title = t.title;
+        if !t.album {
+            tm.album_title = None
+        }
+        if !t.album_artist {
+            tm.album_artists = None
+        }
+        if !t.artist {
+            tm.artists = None
+        }
+        if !t.bpm {
+            tm.bpm = None
+        }
+        if !t.copyright {
+            tm.copyright = None
+        }
+        if !t.cover {
+            tm.cover_url = None
+        }
+        if !t.date {
+            tm.release_date = None
+        }
+        if !t.disc_number {
+            tm.disc_number = None
+        }
+        if !t.initial_key_and_key_scale {
+            tm.key = None;
+            tm.key_scale = None;
+        }
+        if !t.isrc {
+            tm.isrc = None
+        }
+        if !t.total_discs {
+            tm.total_discs = None
+        }
+        if !t.total_tracks {
+            tm.total_tracks = None
+        }
+        if !t.track_number {
+            tm.track_number = None
+        }
+        if !t.track_version {
+            tm.track_version = None
+        }
+        if !t.url {
+            tm.url = None
+        }
+
+        // end the mutable borrow to avoid having to clone in the matches below
+        let tm = ();
+        // use tm so the compiler doesn't complain about an unused variable
+        let _ = tm;
+
+        // the make_track_tags() method doesn't return options with the context of the tagging config
+        // these two sections for the lyrics and ReplayGain apply the context of the config to the returned value
+
+        tag_metadata.lyrics = match t.lyrics {
+            LyricsMode::UnsyncedOnly => match tag_metadata.lyrics {
+                TagLyrics::UnsyncedAndSynced(unsynced, _) => TagLyrics::UnsyncedOnly(unsynced),
+                _ => tag_metadata.lyrics,
+            },
+            LyricsMode::SyncedOnly => match tag_metadata.lyrics {
+                TagLyrics::UnsyncedAndSynced(_, lyrics) => TagLyrics::SyncedOnly(lyrics),
+                _ => tag_metadata.lyrics,
+            },
+            _ => tag_metadata.lyrics,
+        };
+
+        tag_metadata.replaygain = match t.replaygain {
+            ReplayGainMode::TrackOnly => match tag_metadata.replaygain {
+                TagReplayGain::TrackAndAlbum(track_values, _) => {
+                    TagReplayGain::TrackOnly(track_values)
+                }
+                _ => tag_metadata.replaygain,
+            },
+            ReplayGainMode::AlbumOnly => match tag_metadata.replaygain {
+                TagReplayGain::TrackAndAlbum(_, album_values) => {
+                    TagReplayGain::AlbumOnly(album_values)
+                }
+                _ => tag_metadata.replaygain,
+            },
+            _ => tag_metadata.replaygain,
+        };
+
+        tag_metadata
     }
 }
 

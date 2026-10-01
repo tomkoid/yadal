@@ -11,6 +11,7 @@ pub struct AlbumTagContext {
     pub cover_uuid: Option<String>,
 }
 
+#[derive(Debug)]
 pub struct TrackTagMetadata {
     pub title: String,
     pub tag_title: bool,
@@ -72,7 +73,7 @@ impl AlbumTagContext {
 }
 
 impl TrackTagMetadata {
-    pub fn from_track(track: &Track, album_context: Option<AlbumTagContext>) -> Self {
+    pub fn from_track(track: &Track, album_context: &Option<AlbumTagContext>) -> Self {
         let artists = if track.artists.is_empty() {
             vec![track.artist.name.clone()]
         } else {
@@ -85,9 +86,9 @@ impl TrackTagMetadata {
 
         let (album_title, album_artist, release_date, cover_url) = match album_context {
             Some(context) => (
-                Some(context.title),
-                Some(context.artist),
-                context.release_date,
+                Some(context.title.clone()),
+                Some(context.artist.clone()),
+                context.release_date.clone(),
                 context
                     .cover_uuid
                     .as_deref()

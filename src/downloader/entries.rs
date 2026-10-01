@@ -1,4 +1,4 @@
-use std::{path::Path, time::Duration};
+use std::{io, path::Path, time::Duration};
 
 use anyhow::{Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -27,26 +27,6 @@ impl Downloader {
         println!("track: {}", track.title);
         println!("artist: {}", track.artist.name);
         println!("album: {}", track.album.as_ref().unwrap().title);
-
-        if self
-            .find_existing_track_path(
-                &self.config.download.output_path,
-                &track,
-                &MediaType::Track,
-                None,
-            )
-            .is_some()
-            && !self.config.download.force_download
-        {
-            eprintln!(
-                "skipping track (already exists in output directory, overwrite with --force)"
-            );
-            return Ok(DownloadSummary {
-                downloaded: 0,
-                skipped: 1,
-                failed: Vec::new(),
-            });
-        }
 
         self.check_allow_streaming(&track)?;
 
@@ -89,7 +69,8 @@ impl Downloader {
             pb: Some(&pb),
             media_type: MediaType::Track,
         })
-        .await?;
+        .await?; // temporary while downloading code is being refactored
+        // an already existing track file will cause an exiting error right now
 
         let mut summary = DownloadSummary::new();
         summary.downloaded += 1;
@@ -258,14 +239,15 @@ impl Downloader {
                 continue;
             }
 
+            /*
             if !self.config.download.force_download
-                && self
-                    .find_existing_track_path(target_dir, &track, &media_type, Some(index))
+                && Self::find_existing_track_path(target_dir, &track, &media_type, Some(index))
                     .is_some()
             {
                 already_downloaded += 1;
                 continue;
             }
+            */
 
             queued_tracks.push(QueuedTrack { track, index });
         }
