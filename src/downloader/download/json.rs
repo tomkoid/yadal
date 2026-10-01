@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 use anyhow::Context;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -9,7 +9,7 @@ impl Downloader {
     pub async fn download_file_pb(
         &self,
         url: &str,
-        output_path: &PathBuf,
+        output_path: &Path,
         pb: Option<&ProgressBar>,
     ) -> anyhow::Result<()> {
         use futures::StreamExt;
