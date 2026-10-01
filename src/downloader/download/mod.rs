@@ -18,7 +18,6 @@ use crate::{
 
 pub mod dash;
 pub mod json;
-pub mod parallel;
 
 #[derive(Debug, Clone)]
 pub struct QueuedTrack {
