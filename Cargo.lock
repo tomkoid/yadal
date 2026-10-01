@@ -2240,7 +2240,7 @@ dependencies = [
 [[package]]
 name = "tidlers"
 version = "0.5.0"
-source = "git+https://codeberg.org/tomkoid/tidlers?rev=b71d460c9c5ebf2dbcb6dd60657bddb15fcd1b62#b71d460c9c5ebf2dbcb6dd60657bddb15fcd1b62"
+source = "git+https://codeberg.org/tomkoid/tidlers?rev=fc1d6a86cb1ed30a64209617d8867e5da3ece946#fc1d6a86cb1ed30a64209617d8867e5da3ece946"
 dependencies = [
  "base64 0.22.1",
  "chrono",
