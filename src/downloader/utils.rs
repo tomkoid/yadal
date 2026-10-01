@@ -1,10 +1,7 @@
 use std::{
-    env::temp_dir,
     fs::File,
-    io::{self, BufWriter, Read, Seek, Write},
+    io::{BufWriter, Read, Seek, Write},
     path::{Path, PathBuf},
-    process,
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 use crate::downloader::Downloader;
@@ -23,37 +20,19 @@ use tidlers::client::models::track::{
 };
 
 impl Downloader {
-    pub async fn maybe_convert_flac_container(
-        &self,
-        output_path: &Path,
-        playback_info: &TrackPlaybackInfoResponse,
-    ) -> Result<PathBuf> {
-        let extension = output_path
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .unwrap_or("m4a")
-            .to_ascii_lowercase();
+    pub fn needs_flac_remux(playback_info: &TrackPlaybackInfoResponse, extension: &str) -> bool {
+        extension.eq_ignore_ascii_case("m4a")
+            && playback_info
+                .get_codecs()
+                .unwrap_or_default()
+                .to_ascii_lowercase()
+                .contains("flac")
+    }
 
-        let codecs = playback_info
-            .get_codecs()
-            .unwrap_or_default()
-            .to_ascii_lowercase();
-
-        if extension != "m4a" || !codecs.contains("flac") {
-            return Ok(output_path.to_path_buf());
-        }
-
-        let flac_path = output_path.with_extension("flac");
-        let input = output_path.to_path_buf();
-        let output = flac_path.clone();
-
+    pub async fn remux_to_flac(input: PathBuf, output: PathBuf) -> Result<()> {
         tokio::task::spawn_blocking(move || remux_mp4_flac_to_flac(&input, &output))
             .await
-            .context("remux task panicked")??;
-
-        std::fs::remove_file(output_path)
-            .with_context(|| format!("Failed to remove {}", output_path.display()))?;
-        Ok(flac_path)
+            .context("remux task panicked")?
     }
 
     pub fn sniff_tag_extension(&self, file: &mut std::fs::File, declared: &str) -> Result<String> {
@@ -222,16 +201,4 @@ fn remux_mp4_flac_to_flac(input: &Path, output: &Path) -> Result<()> {
     writer.flush()?;
 
     Ok(())
-}
-
-pub fn make_temp_file(prefix: &str) -> io::Result<PathBuf> {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    let file = temp_dir().join(format!("{prefix}-{}-{nanos}", process::id()));
-
-    File::create(&file)?;
-
-    return Ok(file);
 }

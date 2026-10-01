@@ -23,7 +23,6 @@ use crate::{
     config::FileConfig,
     downloader::{
         config::DownloaderConfig, config::DownloaderConfigDownload, config::DownloaderConfigTags,
-        ui::summary::DownloadSummary,
     },
     parser::parse_id_input,
 };
@@ -168,71 +167,27 @@ async fn cmd_download(command: Commands) -> Result<()> {
         user_info.user_id, user_info.username
     );
 
-    // create downloader
-    let mut downloader = Downloader::new(client, options.clone());
-
     println!("audio quality: {:?}", options.download.audio_quality);
     println!(
         "output directory: {}",
         options.download.output_path.display()
     );
-
     print_full_line();
 
-    let mut summaries: Vec<DownloadSummary> = Vec::new();
-    for target in targets {
-        downloader.reset_state();
+    let forced_type = match media_type {
+        MediaTypeArg::Track => Some(MediaType::Track),
+        MediaTypeArg::Album => Some(MediaType::Album),
+        MediaTypeArg::Playlist => Some(MediaType::Playlist),
+        MediaTypeArg::Auto => None,
+    };
 
-        let media_type = match media_type {
-            MediaTypeArg::Track => MediaType::Track,
-            MediaTypeArg::Album => MediaType::Album,
-            MediaTypeArg::Playlist => MediaType::Playlist,
-            MediaTypeArg::Auto => target.media_type,
-        };
+    let downloader = Downloader::new(client, options);
+    let summary = downloader.download_media(&targets, forced_type).await?;
 
-        // download based on type
-        let summary = match media_type {
-            MediaType::Track => {
-                println!("downloading track {}...", target.id);
-                downloader.download_track(&target.id).await?
-            }
-            MediaType::Album => {
-                println!("downloading album {}...", target.id);
-                downloader
-                    .download_media(&target.id, MediaType::Album)
-                    .await?
-            }
-            MediaType::Playlist => {
-                println!("downloading playlist {}...", target.id);
-                downloader
-                    .download_media(&target.id, MediaType::Playlist)
-                    .await?
-            }
-        };
+    print_full_line();
+    summary.print();
 
-        println!(
-            "summary for {}: {} downloaded, {} skipped, {} failed",
-            target.id,
-            summary.downloaded,
-            summary.skipped,
-            summary.failed.len()
-        );
-
-        summaries.push(summary);
-
-        print_full_line();
-    }
-
-    let mut total_summary = DownloadSummary::new();
-    for summary in summaries {
-        total_summary.downloaded += summary.downloaded;
-        total_summary.skipped += summary.skipped;
-        total_summary.failed.extend(summary.failed);
-    }
-
-    total_summary.print();
-
-    if !total_summary.did_fail() {
+    if !summary.did_fail() {
         Ok(())
     } else {
         bail!("download(s) failed.");

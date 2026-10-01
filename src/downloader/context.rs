@@ -3,9 +3,12 @@ use tidlers::{
     resources::uuid_to_url_with_size,
 };
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct AlbumTagContext {
+    pub id: String,
     pub title: String,
+    pub explicit: bool,
+    pub total_tracks: Option<u32>,
     pub artist: String,
     pub release_date: Option<String>,
     pub cover_uuid: Option<String>,
@@ -60,6 +63,9 @@ pub struct ReplayGainValues {
 impl AlbumTagContext {
     pub fn from_album_response(album: &AlbumResponse) -> Self {
         Self {
+            id: album.id.to_string(),
+            explicit: album.explicit,
+            total_tracks: Some(album.number_of_tracks as u32),
             title: album.title.clone(),
             artist: album.artist.name.clone(),
             release_date: Some(album.release_date.clone()),
@@ -70,6 +76,30 @@ impl AlbumTagContext {
             },
         }
     }
+}
+
+impl AlbumTagContext {
+    pub fn from_track(track: &Track) -> Self {
+        let album = track.album.as_ref().unwrap();
+
+        Self {
+            id: album.id.to_string(),
+            title: album.title.clone(),
+            explicit: false, // not set in Track model
+            total_tracks: None,
+            artist: track.artist.name.clone(),
+            release_date: album.release_date.clone(),
+            cover_uuid: album.cover.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PlaylistTemplateContext {
+    pub uuid: String,
+    pub title: String,
+    pub created: Option<String>,
+    pub last_updated: Option<String>,
 }
 
 impl TrackTagMetadata {
@@ -140,9 +170,7 @@ impl TrackTagMetadata {
             disc_number: Some(track.volume_number),
             isrc: track.isrc.clone(),
             replaygain: TagReplayGain::None,
-            // not implemented in tidlers
             total_discs: None,
-            // not implemented in tidlers
             total_tracks: None,
             url: Some(track.url.clone()),
         }

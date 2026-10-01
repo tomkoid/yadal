@@ -1,6 +1,5 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use indicatif::ProgressBar;
-use std::path::Path;
 use tidlers::client::models::track::{
     Track,
     playback::{ManifestType, TrackPlaybackInfoResponse},
@@ -11,87 +10,114 @@ use crate::{
     downloader::{
         Downloader,
         config::DownloaderConfigTags,
-        context::{AlbumTagContext, ReplayGainValues, TagLyrics, TagReplayGain, TrackTagMetadata},
+        context::{
+            AlbumTagContext, PlaylistTemplateContext, ReplayGainValues, TagLyrics, TagReplayGain,
+            TrackTagMetadata,
+        },
+        template::{Templater, render_track_path},
     },
-    types::MediaType,
 };
 
 pub mod dash;
 pub mod json;
 
 #[derive(Debug, Clone)]
-pub struct QueuedTrack {
+pub struct TrackJob {
     pub track: Track,
-    pub index: usize,
+    pub album: Option<AlbumTagContext>,
+    pub playlist: Option<PlaylistTemplateContext>,
+    /// 1-based position inside the album/playlist (1 for standalone tracks)
+    pub position: usize,
 }
 
-pub struct DownloadTrackRequest<'a> {
-    pub track: &'a Track,
-    pub playback_info: &'a TrackPlaybackInfoResponse,
-    pub output_path: &'a Path,
-    pub album_context: Option<AlbumTagContext>,
-    pub index: Option<usize>,
-    pub pb: Option<&'a ProgressBar>,
-    pub media_type: MediaType,
+pub enum TrackOutcome {
+    Downloaded,
+    Skipped,
 }
 
 impl Downloader {
-    /// Downloads one track from playback info and tags the resulting file.
-    pub async fn download_track_with_info_pb(
+    pub async fn process_track(
         &self,
-        request: DownloadTrackRequest<'_>,
-    ) -> Result<()> {
-        let output_path = request
-            .output_path
-            .join(request.track.title.clone())
-            .with_extension(Self::get_file_extension(&request.playback_info));
+        job: &TrackJob,
+        playback_info: &TrackPlaybackInfoResponse,
+        templater: &Templater,
+        pb: Option<&ProgressBar>,
+    ) -> Result<TrackOutcome> {
+        let skip_transcode = self.config.download.skip_transcode;
+        let raw_ext = Self::get_file_extension(playback_info);
+        let remux = !skip_transcode && Self::needs_flac_remux(playback_info, raw_ext);
+        let final_ext = if remux { "flac" } else { raw_ext };
 
-        match &request.playback_info.manifest_parsed {
+        let relative = render_track_path(
+            templater,
+            &job.track,
+            job.album.as_ref(),
+            job.playlist.as_ref().map(|p| (p, job.position)),
+            final_ext,
+        )
+        .context("failed to render output template")?;
+
+        let final_path = self.config.download.output_path.join(relative);
+
+        if !self.config.download.force_download && final_path.try_exists().unwrap_or(false) {
+            if let Some(pb) = pb {
+                pb.finish_with_message(format!("skipped {} (already exists)", job.track.title));
+            }
+            return Ok(TrackOutcome::Skipped);
+        }
+
+        if let Some(parent) = final_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
+        let mut part_name = final_path.as_os_str().to_owned();
+        part_name.push(".part");
+
+        let part_path = std::path::PathBuf::from(part_name);
+
+        match &playback_info.manifest_parsed {
             Some(ManifestType::Dash(dash)) => {
-                self.download_dash_track_pb(dash, &output_path, &request.track.title, request.pb)
+                self.download_dash_track_pb(dash, &part_path, &job.track.title, pb)
                     .await?;
             }
             Some(ManifestType::Json(json_manifest)) => {
-                if let Some(url) = json_manifest.urls.first() {
-                    self.download_file_pb(url, &output_path, request.pb).await?;
-                } else {
-                    anyhow::bail!("No URLs in manifest");
-                }
+                let url = json_manifest.urls.first().context("no URLs in manifest")?;
+                self.download_file_pb(url, &part_path, pb).await?;
             }
-            None => {
-                anyhow::bail!("No parsed manifest available");
-            }
+            None => bail!("No parsed manifest available"),
         }
 
-        let temp_output_path = match self.config.download.skip_transcode {
-            true => output_path,
-            false => {
-                self.maybe_convert_flac_container(&output_path, request.playback_info)
-                    .await?
-            }
-        };
+        if remux {
+            Self::remux_to_flac(part_path.clone(), final_path.clone()).await?;
+            std::fs::remove_file(&part_path)?;
+        } else {
+            std::fs::rename(&part_path, &final_path)?;
+        }
 
         if self.config.tags.enable {
-            let tag_metadata = self.make_full_track_tags(&request).await;
-            let configured_tag_metadata =
-                Self::apply_config_to_tags(&self.config.tags, tag_metadata).await;
+            let tag_metadata = self.make_full_track_tags(job, playback_info).await;
+            let configured = Self::apply_config_to_tags(&self.config.tags, tag_metadata).await;
 
-            self.tag_downloaded_file(&temp_output_path, &configured_tag_metadata)
+            self.tag_downloaded_file(&final_path, &configured)
                 .await
                 .context("Failed to tag downloaded file")?;
         }
 
-        Ok(())
+        Ok(TrackOutcome::Downloaded)
     }
 
-    async fn make_full_track_tags(&self, request: &DownloadTrackRequest<'_>) -> TrackTagMetadata {
-        let mut tm = TrackTagMetadata::from_track(request.track, &request.album_context);
+    async fn make_full_track_tags(
+        &self,
+        job: &TrackJob,
+        playback_info: &TrackPlaybackInfoResponse,
+    ) -> TrackTagMetadata {
+        let mut tm = TrackTagMetadata::from_track(&job.track, &job.album);
 
         // handle lyrics
         'once: {
             let lyrics_res = match self
                 .tidal_client
-                .get_track_lyrics(request.track.id.to_string())
+                .get_track_lyrics(job.track.id.to_string())
                 .await
             {
                 Ok(lyrics_res) => lyrics_res,
@@ -106,18 +132,16 @@ impl Downloader {
         }
 
         // handle ReplayGain
-        let rp_gain_track_values = if let Some(gain) =
-            fmt_gain(request.playback_info.track_replay_gain)
-            && let Some(peak) = fmt_peak(request.playback_info.track_peak_amplitude)
+        let rp_gain_track_values = if let Some(gain) = fmt_gain(playback_info.track_replay_gain)
+            && let Some(peak) = fmt_peak(playback_info.track_peak_amplitude)
         {
             Some(ReplayGainValues { gain, peak })
         } else {
             None
         };
 
-        let rp_gain_album_values = if let Some(gain) =
-            fmt_gain(request.playback_info.album_replay_gain)
-            && let Some(peak) = fmt_peak(request.playback_info.album_peak_amplitude)
+        let rp_gain_album_values = if let Some(gain) = fmt_gain(playback_info.album_replay_gain)
+            && let Some(peak) = fmt_peak(playback_info.album_peak_amplitude)
         {
             Some(ReplayGainValues { gain, peak })
         } else {
