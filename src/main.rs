@@ -1,5 +1,5 @@
+use std::fs::create_dir_all;
 use std::path::PathBuf;
-use std::{fs::create_dir_all, process::exit};
 
 use anyhow::{Result, bail};
 use clap::Parser;
@@ -87,7 +87,7 @@ async fn cmd_download(command: Commands) -> Result<()> {
 
     if id.iter().any(|s| s.contains("upload")) {
         bail!(
-            "error: uploads are not supported yet. please provide a valid track, album, or playlist ID."
+            "uploads are not supported yet. please provide a valid track, album, or playlist ID."
         );
     }
 
@@ -95,9 +95,7 @@ async fn cmd_download(command: Commands) -> Result<()> {
     let targets = if let Some(targets) = parse_id_input(&id) {
         targets
     } else {
-        bail!(
-            "invalid/malformed TIDAL URL/ID: nearly all formats in a TIDAL URL, as well as a raw ID/UUID are supported"
-        );
+        bail!("invalid or malformed TIDAL URL/ID.");
     };
 
     // authenticate
@@ -125,7 +123,7 @@ async fn cmd_download(command: Commands) -> Result<()> {
     let download_path = if let Some(path) = expand_home_symbol(&d.output_path) {
         path
     } else {
-        bail!("failed to expand output_path home symbol");
+        bail!("failed to expand output_path home symbol.");
     };
 
     if !PathBuf::from(&download_path).try_exists()? {
@@ -229,5 +227,10 @@ async fn cmd_download(command: Commands) -> Result<()> {
     }
 
     total_summary.print();
-    exit(total_summary.get_exit_code());
+
+    if !total_summary.did_fail() {
+        Ok(())
+    } else {
+        bail!("download(s) failed.");
+    }
 }

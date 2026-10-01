@@ -40,7 +40,7 @@ impl DownloadSummary {
         }
     }
 
-    pub fn get_exit_code(&self) -> i32 {
-        if !self.failed.is_empty() { 1 } else { 0 }
+    pub fn did_fail(&self) -> bool {
+        !self.failed.is_empty()
     }
 }
