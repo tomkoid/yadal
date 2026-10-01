@@ -148,6 +148,10 @@ async fn cmd_download(command: Commands) -> Result<()> {
         },
     };
 
+    if options.download.max_parallel < 1 {
+        bail!("max parallel downloads must be greater than zero");
+    }
+
     // authenticate
     let mut client = if reauth {
         println!("forcing re-authentication...\n");
