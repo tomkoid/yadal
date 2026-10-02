@@ -104,14 +104,14 @@ async fn cmd_download(command: Commands) -> Result<()> {
     let t = &config.tags;
 
     let download_path = if let Some(path) = expand_home_symbol(&d.output_path) {
+        if !PathBuf::from(&path).try_exists()? {
+           create_dir_all(&path)?;
+        }
+
         path
     } else {
         bail!("failed to expand output_path home symbol.");
     };
-
-    if !PathBuf::from(&download_path).try_exists()? {
-        create_dir_all(&download_path)?;
-    }
 
     let options = DownloaderConfig {
         download: DownloaderConfigDownload {

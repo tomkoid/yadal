@@ -144,18 +144,21 @@ impl FileConfig {
             let mut config = Self::default();
 
             let audio_dir = if let Some(audio_dir) = dirs::audio_dir() {
-                audio_dir.join("yadal").canonicalize()?
+                audio_dir.join("yadal")
             } else if let Some(home_dir) = home_dir() {
-                let audio_dir = home_dir.join("Music");
-
-                if audio_dir.try_exists()? {
-                    audio_dir.join("yadal").canonicalize()?
-                } else {
-                    return Err(FileConfigError::CantGetAudioDir);
-                }
+                home_dir.join("Music").join("yadal")
             } else {
                 return Err(FileConfigError::CantGetAudioDir);
             };
+
+            // creating a directory in here should be harmless, cause it would be created either way
+            // it's a bit awkward from main if it's not created here...
+            // it's created as .canonicalize() needs the path to exist
+            if !audio_dir.try_exists()? {
+                create_dir_all(&audio_dir)?
+            }
+
+            let audio_dir = audio_dir.canonicalize()?;
 
             config.download.output_path = if let Some(replaced_path) = replace_with_home_symbol(&audio_dir) {
                 replaced_path
