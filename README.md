@@ -15,7 +15,7 @@ This project serves as a practical showcase of [Tidlers](https://codeberg.org/to
 - Support for multiple audio quality levels: low, high, lossless, and hi-res
 - Download range of tracks from an album or playlist (`--range`)
 - Parallel downloads
-- Works on Linux, macOS, and Windows (likely even more if you would want to)
+- Works on Windows, macOS, Linux, FreeBSD, and more!
 - Progress indicators for downloads
 - Tags downloaded audio with files with all possible tags from TIDAL
 - Internal Rust library can be used anywhere
