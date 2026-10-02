@@ -18,7 +18,7 @@ pub enum FileConfigError {
     #[error("TOML serialising error: {0}")]
     TomlSerialise(#[from] toml::ser::Error),
     #[error("MiniJinja templating error: {0}")]
-    MiniJinjaTemplateError(#[from] minijinja::Error),
+    MiniJinjaTemplate(#[from] minijinja::Error),
     #[error("replacing with home symbol failed: {0}")]
     ReplaceWithHomeSymbol(String),
     #[error("failed to obtain user audio directory")]
