@@ -19,6 +19,10 @@ pub enum FileConfigError {
     TomlSerialise(#[from] toml::ser::Error),
     #[error("MiniJinja templating error: {0}")]
     MiniJinjaTemplateError(#[from] minijinja::Error),
+    #[error("replacing with home symbol failed: {0}")]
+    ReplaceWithHomeSymbol(String),
+    #[error("failed to obtain user audio directory")]
+    CantGetAudioDir,
 }
 
 #[derive(Clone, Default, Debug, Deserialize, Serialize)]
@@ -86,16 +90,8 @@ pub enum ReplayGainMode {
 
 impl Default for Download {
     fn default() -> Self {
-        let audio_dir = dirs::audio_dir()
-            .expect("failed to get user audio path")
-            .join("yadal")
-            .canonicalize()
-            .expect("failed to canonicalise user audio path");
-        let output_path = replace_with_home_symbol(&audio_dir)
-            .expect("failed to replace home path with tilde symbol");
-
         Self {
-            output_path,
+            output_path: "REPLACE_THIS_VALUE".into(),
             output_template: OUTPUT_TEMPLATE.into(),
             audio_quality: QualityArg::default(),
             max_parallel: 5,
@@ -144,7 +140,21 @@ impl FileConfig {
         if config_path.try_exists()? {
             Self::load_from_file(&config_path)
         } else {
-            Ok(Self::default())
+            let mut config = Self::default();
+
+            let audio_dir = if let Some(audio_dir) = dirs::audio_dir() {
+                audio_dir.join("yadal").canonicalize()?
+            } else {
+                return Err(FileConfigError::CantGetAudioDir);
+            };
+
+            config.download.output_path = if let Some(replaced_path) = replace_with_home_symbol(&audio_dir) {
+                replaced_path
+            } else {
+                return Err(FileConfigError::ReplaceWithHomeSymbol(audio_dir.display().to_string()));
+            };
+
+            Ok(config)
         }
     }
 
@@ -180,7 +190,8 @@ impl FileConfig {
             create_dir_all(parent_folder)?;
         }
 
-        let toml_str = toml::to_string(&Self::default())?;
+        // this will error out if the config already exists, but like, why would you be running this command if it exists already
+        let toml_str = toml::to_string(&Self::get_config()?)?;
         std::fs::write(&path, toml_str)?;
 
         Ok(path)
