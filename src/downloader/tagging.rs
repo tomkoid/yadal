@@ -35,12 +35,15 @@ impl Downloader {
         &self,
         output_path: &Path,
         metadata: &TrackTagMetadata,
+        log: &(dyn Fn(String) + Sync),
     ) -> Result<(), TaggingError> {
         let full_title = if let Some(ref version) = metadata.track_version {
             metadata.title.clone() + &format!(" ({version})")
         } else {
             metadata.title.clone()
         };
+
+        let warn = |msg: &str| log(format!("{full_title}: {msg}"));
 
         // it might be better to strip the existing tags without saving it to disk and reopening
         strip_tags(output_path)?;
@@ -65,10 +68,7 @@ impl Downloader {
                         flac.save_to_path(output_path, WriteOptions::default())?;
                     }
                 }
-                _ => eprintln!(
-                    "{}: unable to write URL tag, file does not support Vorbis Comments (not a FLAC file)",
-                    full_title
-                ),
+                _ => warn("unable to write URL tag, file does not support Vorbis Comments (not a FLAC file)")
             }
 
             file_type
@@ -97,10 +97,10 @@ impl Downloader {
                 .enumerate()
             {
                 if !success {
-                    eprintln!(
-                        "{}: failed to write album artist {}: \"{}\"",
-                        full_title, i, album_artists[i]
-                    );
+                    warn(&format!(
+                        "failed to write album artist {}: \"{}\"",
+                        i, album_artists[i]
+                    ));
                 }
             }
         }
@@ -115,10 +115,10 @@ impl Downloader {
                 .enumerate()
             {
                 if !success {
-                    eprintln!(
-                        "{}: failed to write artist {}: \"{}\"",
-                        full_title, i, artists[i]
-                    );
+                    warn(&format!(
+                        "failed to write artist {}: \"{}\"",
+                        i, artists[i]
+                    ));
                 }
             }
         }
@@ -126,13 +126,13 @@ impl Downloader {
         if let Some(bpm) = metadata.bpm
             && !tag.insert_text(ItemKey::Bpm, (bpm.round() as u16).to_string())
         {
-            eprintln!("{}: failed to write BPM", full_title);
+            warn("failed to write BPM");
         }
 
         if let Some(ref copyright) = metadata.copyright
             && !tag.insert_text(ItemKey::CopyrightMessage, copyright.to_owned())
         {
-            eprintln!("{}: failed to write copyright", full_title);
+            warn("failed to write copyright");
         }
 
         if let Some(ref cover) = metadata.cover {
@@ -150,7 +150,7 @@ impl Downloader {
         if let Some(ref isrc) = metadata.isrc
             && !tag.insert_text(ItemKey::Isrc, isrc.to_owned())
         {
-            eprintln!("{}: failed to write ISRC", full_title);
+            warn("failed to write ISRC");
         }
 
         if let Some(key) = metadata.key.as_deref()
@@ -160,10 +160,10 @@ impl Downloader {
                 "major" => "", // no need to append anything for major keys
                 "minor" => "m",
                 _ => {
-                    eprintln!(
-                        "{}: unrecognized key scale '{}'. using original value",
-                        full_title, key_scale,
-                    );
+                    warn(&format!(
+                        "unrecognized key scale '{}'. using original value",
+                        key_scale,
+                    ));
                     key_scale
                 }
             };

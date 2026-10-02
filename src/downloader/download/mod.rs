@@ -101,7 +101,12 @@ impl Downloader {
             let tag_metadata = self.make_full_track_tags(job, playback_info).await;
             let configured = Self::apply_config_to_tags(&self.config.tags, tag_metadata).await;
 
-            self.tag_downloaded_file(&final_path, &configured)
+            let log = |msg: String| match pb {
+                Some(pb) if !pb.is_hidden() => pb.println(format!("  {msg}")),
+                _ => eprintln!("  {msg}")
+            };
+
+            self.tag_downloaded_file(&final_path, &configured, &log)
                 .await
                 .context("Failed to tag downloaded file")?;
         }
