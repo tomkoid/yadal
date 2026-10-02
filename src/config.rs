@@ -251,7 +251,7 @@ fn test_config_deserialization() {
     let toml_str = r#"
 		[download]
 		output_path = "/path/to/output"
-		output_template = "{{ album.artists[0] }}/{{ album.title }}{% if album.explicit %} (Explicit){% endif %}/{{ "%02d"|format(track.number) }} {{ track.title }}{% if track.version %} ({{ track.version }}){% endif %}{% if track.explicit %} (Explicit){% endif %}.{{ track.extension }}"
+		output_template = "{{ album.artists[0] }}/{{ album.title }}{% if album.explicit %} (Explicit){% endif %}/{{ \"%02d\"|format(track.number) }} {{ track.title }}{% if track.version %} ({{ track.version }}){% endif %}{% if track.explicit %} (Explicit){% endif %}.{{ track.extension }}"
 		audio_quality = "high"
 		max_parallel = 5
 		force_download = false
@@ -278,7 +278,7 @@ fn test_config_deserialization() {
 		track_number = true
 		track_version = true
 		url = true
-	"#;
+"#;
 
     let config: FileConfig = toml::from_str(toml_str).expect("Failed to deserialize config");
     let d = &config.download;
