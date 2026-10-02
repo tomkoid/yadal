@@ -45,7 +45,7 @@ nix profile install github:tomkoid/yadal
 
 Or you can install it system-wide like any other flake using the `flake.nix`.
 
-### From source (Linux, macOS, Windows)
+### From source
 
 To build and install Yadal, you need to have Rust installed. You can install Rust using [rustup](https://rustup.rs/).
 Rust 1.89+ is required.
@@ -104,7 +104,7 @@ Specify audio quality:
 yadal download -q hi-res https://tidal.com/track/230917825
 ```
 
-Available quality options: `low`, `high`, `lossless`, `hires` (default: `hires`)
+Available quality options: `low`, `high`, `lossless`, `hi-res` (default: `hi-res`)
 
 Set output directory:
 ```bash
