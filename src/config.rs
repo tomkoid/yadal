@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::env::home_dir;
 use std::io;
 use std::{
     fs::create_dir_all,
@@ -144,6 +145,14 @@ impl FileConfig {
 
             let audio_dir = if let Some(audio_dir) = dirs::audio_dir() {
                 audio_dir.join("yadal").canonicalize()?
+            } else if let Some(home_dir) = home_dir() {
+                let audio_dir = home_dir.join("Music");
+
+                if audio_dir.try_exists()? {
+                    audio_dir.join("yadal").canonicalize()?
+                } else {
+                    return Err(FileConfigError::CantGetAudioDir);
+                }
             } else {
                 return Err(FileConfigError::CantGetAudioDir);
             };
