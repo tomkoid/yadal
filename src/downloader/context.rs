@@ -65,7 +65,7 @@ impl AlbumTagContext {
         Self {
             id: album.id.to_string(),
             explicit: album.explicit,
-            total_tracks: Some(album.number_of_tracks as u32),
+            total_tracks: Some(album.number_of_tracks),
             title: album.title.clone(),
             artist: album.artist.name.clone(),
             release_date: Some(album.release_date.clone()),

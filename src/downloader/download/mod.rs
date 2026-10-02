@@ -219,9 +219,8 @@ impl Downloader {
         }
 
         // end the mutable borrow to avoid having to clone in the matches below
+        #[allow(unused)]
         let tm = ();
-        // use tm so the compiler doesn't complain about an unused variable
-        let _ = tm;
 
         // the make_track_tags() method doesn't return options with the context of the tagging config
         // these two sections for the lyrics and ReplayGain apply the context of the config to the returned value
