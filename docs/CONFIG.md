@@ -8,7 +8,7 @@ The configuration file is at `yadal/config.toml` within your platform's configur
 ## Values
 
 There are two tables in the configuration file with their possible values listed below.  
-If you are unsure of how to format them in the configuration file, run `--init-config-file` in yadal to generate one with every possible field written out with its default value.
+If you are unsure of how to format them in the configuration file, run `yadal init-config-file` to generate one with every possible field written out with its default value.
 
 ### download
 
