@@ -20,8 +20,9 @@ use crate::{
         context::{AlbumTagContext, PlaylistTemplateContext},
         download::{TrackJob, TrackOutcome},
         rate_limiter::RateLimitState,
-        template::{Templater, parse_ymdhms},
+        template::Templater,
         ui::summary::DownloadSummary,
+        utils::parse_ymdhms,
     },
     parser::Target,
     types::MediaType,
@@ -82,7 +83,7 @@ impl Downloader {
                         Ok(collection) => {
                             summary.failed.extend(collection.failed);
                             summary.merge(self.run_batch(collection.jobs, &templater).await);
-                        },
+                        }
                         Err(err) => summary.failed.push((target.id.clone(), err)),
                     }
                 }
@@ -211,7 +212,10 @@ impl Downloader {
                     uuid: id.to_string(),
                     title: playlist.title.clone(),
                     created: parse_ymdhms(&playlist.created).with_context(|| {
-                        format!("Failed to parse playlist created date '{}'", playlist.created)
+                        format!(
+                            "Failed to parse playlist created date '{}'",
+                            playlist.created
+                        )
                     })?,
                     last_updated: parse_ymdhms(&playlist.last_updated).with_context(|| {
                         format!(
@@ -353,7 +357,11 @@ impl Downloader {
 
     /// process one track (job)
     async fn run_job(&self, job: &TrackJob, batch: &Batch<'_>) -> (String, Result<TrackOutcome>) {
-        let title = job.track.title.clone();
+        let title = if let Some(ref version) = job.track.version {
+            job.track.title.clone() + &format!(" ({version})")
+        } else {
+            job.track.title.clone()
+        };
 
         if let Err(err) = self.check_allow_streaming(&job.track) {
             return (
