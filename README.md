@@ -64,31 +64,35 @@ The binary will be available in your `~/.cargo/bin`.
 
 Download a track:
 ```bash
-yadal https://tidal.com/track/437468401
+yadal download https://tidal.com/track/437468401
 ```
 
 Download an album:
 ```bash
-yadal https://tidal.com/album/55130630
+yadal download https://tidal.com/album/55130630
 ```
 
 Download a playlist:
 ```bash
-yadal https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d
+yadal download https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d
 ```
 
 Download a playlist and an album after each other:
 ```bash
-yadal https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d,https://tidal.com/album/55130630
+yadal download https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d,https://tidal.com/album/55130630
 ```
 
 ### Using Raw IDs
 
 You can also provide just the ID without the full URL:
 ```bash
-yadal 437468401
-yadal 55130630
-yadal aa692128-2954-4fe1-b5a1-4ede1add485d
+yadal download 437468401
+yadal download 55130630
+yadal download aa692128-2954-4fe1-b5a1-4ede1add485d
+```
+As well as in one command:
+```bash
+yadal download 437468401 55130630 aa692128-2954-4fe1-b5a1-4ede1add485d
 ```
 
 The tool will automatically detect the media type based on the ID format.
@@ -97,39 +101,39 @@ The tool will automatically detect the media type based on the ID format.
 
 Specify audio quality:
 ```bash
-yadal --quality hi-res https://tidal.com/track/230917825
+yadal download -q hi-res https://tidal.com/track/230917825
 ```
 
 Available quality options: `low`, `high`, `lossless`, `hires` (default: `hires`)
 
 Set output directory:
 ```bash
-yadal --output ./music https://tidal.com/album/55130630
+yadal download --output ./music https://tidal.com/album/55130630
 ```
 
 Configure parallel downloads:
 ```bash
-yadal --parallel 10 https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d
+yadal download --parallel 10 https://tidal.com/playlist/aa692128-2954-4fe1-b5a1-4ede1add485d
 ```
 
 Force re-authentication:
 ```bash
-yadal --reauth https://tidal.com/track/437468401
+yadal download --reauth https://tidal.com/track/437468401
 ```
 
 Use custom session file location:
 ```bash
-yadal --session-file /path/to/session.json https://tidal.com/track/341764697
+yadal download --session-file /path/to/session.json https://tidal.com/track/341764697
 ```
 
 Use legacy OAuth2 device flow:
 ```bash
-yadal --oauth2 https://tidal.com/track/341764697
+yadal download --oauth2 https://tidal.com/track/341764697
 ```
 
 Download album items even if they already exist:
 ```bash
-yadal --force https://tidal.com/album/55130630
+yadal download --force https://tidal.com/album/55130630
 ```
 
 ## Configuration
