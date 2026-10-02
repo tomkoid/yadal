@@ -4,7 +4,10 @@ use std::path::PathBuf;
 use serde::Serialize;
 use tidlers::client::models::track::Track;
 
-use crate::downloader::context::{AlbumTagContext, PlaylistTemplateContext};
+use crate::downloader::{
+    context::{AlbumTagContext, PlaylistTemplateContext},
+    utils::{TidalDateYmd, TidalDateYmdhms, parse_ymd},
+};
 
 #[derive(Serialize)]
 pub struct TemplateContext<'a> {
@@ -52,23 +55,6 @@ pub struct TemplatePlaylistCtx<'a> {
     pub uuid: &'a str,
 }
 
-#[derive(Serialize)]
-pub struct TidalDateYmd {
-    pub day: Option<u64>,
-    pub month: Option<u64>,
-    pub year: u64,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct TidalDateYmdhms {
-    pub day: u64,
-    pub month: u64,
-    pub year: u64,
-    pub hour: u64,
-    pub minute: u64,
-    pub second: u64,
-}
-
 pub struct Templater {
     _env: Environment<'static>,
 }
@@ -113,42 +99,6 @@ pub fn validate(template: &str) -> Result<(), minijinja::Error> {
     let _ = Templater::make(template)?;
 
     Ok(())
-}
-
-fn parse_ymd(date: &str) -> Option<TidalDateYmd> {
-    let mut parts = date.split('T').next()?.split('-');
-    let year = parts.next()?.parse().ok()?;
-    let month = parts.next().and_then(|m| m.parse().ok());
-    let day = parts.next().and_then(|d| d.parse().ok());
-
-    Some(TidalDateYmd { day, month, year })
-}
-
-/// parse the ISO 8601 timestamp returned by TIDAL for playlists \
-/// important: it is NOT RFC 3339
-pub fn parse_ymdhms(date: &str) -> Option<TidalDateYmdhms> {
-    let (date_part, time_part) = date.split_once('T')?;
-
-    let mut d = date_part.split('-');
-    let year = d.next()?.parse().ok()?;
-    let month = d.next()?.parse().ok()?;
-    let day = d.next()?.parse().ok()?;
-
-    // only keep HH:MM:SS
-    let time_part = time_part.split(['.', '+', 'Z', '-']).next()?;
-    let mut t = time_part.split(':');
-    let hour = t.next()?.parse().ok()?;
-    let minute = t.next()?.parse().ok()?;
-    let second = t.next()?.parse().ok()?;
-
-    Some(TidalDateYmdhms {
-        day,
-        month,
-        year,
-        hour,
-        minute,
-        second,
-    })
 }
 
 pub fn render_track_path(
@@ -211,7 +161,7 @@ pub fn render_track_path(
 
 #[cfg(test)]
 mod tests {
-    use super::parse_ymdhms;
+    use crate::downloader::utils::parse_ymdhms;
 
     #[test]
     fn parses_tidal_timestamp_with_offset() {

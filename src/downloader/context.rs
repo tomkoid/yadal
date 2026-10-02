@@ -1,9 +1,6 @@
-use tidlers::{
-    client::models::{album::AlbumResponse, track::Track},
-    resources::uuid_to_url_with_size,
-};
+use tidlers::client::models::{album::AlbumResponse, track::Track};
 
-use crate::downloader::template::TidalDateYmdhms;
+use crate::downloader::utils::{CoverImage, TidalDateYmdhms};
 
 #[derive(Debug, Clone)]
 pub struct AlbumTagContext {
@@ -27,7 +24,7 @@ pub struct TrackTagMetadata {
     pub album_title: Option<String>,
     pub album_artists: Option<Vec<String>>,
     pub release_date: Option<String>,
-    pub cover_url: Option<String>,
+    pub cover: Option<CoverImage>,
     pub lyrics: TagLyrics,
     pub bpm: Option<f32>,
     pub key: Option<String>,
@@ -102,29 +99,19 @@ impl TrackTagMetadata {
                 .collect()
         };
 
-        let album_title = Some(album.title.clone());
-        let release_date = album.release_date.clone();
-        let cover_url = album
-            .cover_uuid
-            .as_deref()
-            .or_else(|| track.album.as_ref().and_then(|a| a.cover.as_deref()))
-            .map(|uuid| uuid_to_url_with_size(uuid, 1280));
-
         // temporary until tidlers implements getting multiple album artists
         let album_artists = Some(vec![album.artist.clone()]);
-
-        let track_number = track.track_number;
 
         Self {
             title: track.title.clone(),
             tag_title: false, // needs to be set by the consumer
             track_version: track.version.clone(),
-            track_number: Some(track_number),
+            track_number: Some(track.track_number),
             artists: Some(artists),
-            album_title,
+            album_title: Some(album.title.clone()),
             album_artists,
-            release_date,
-            cover_url,
+            release_date: album.release_date.clone(),
+            cover: None,
             lyrics: TagLyrics::None,
             bpm: track.bpm,
             key: track.key.clone(),

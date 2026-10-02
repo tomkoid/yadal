@@ -1,8 +1,11 @@
 use anyhow::{Context, Result, bail};
 use indicatif::ProgressBar;
-use tidlers::client::models::track::{
-    Track,
-    playback::{ManifestType, TrackPlaybackInfoResponse},
+use tidlers::{
+    client::models::track::{
+        Track,
+        playback::{ManifestType, TrackPlaybackInfoResponse},
+    },
+    resources::uuid_to_url_with_size,
 };
 
 use crate::{
@@ -113,6 +116,17 @@ impl Downloader {
     ) -> TrackTagMetadata {
         let mut tm = TrackTagMetadata::from_track(&job.track, &job.album);
 
+        if let Some(cover_url) = job
+            .album
+            .cover_uuid
+            .as_deref()
+            .or_else(|| job.track.album.as_ref().and_then(|a| a.cover.as_deref()))
+            .map(|uuid| uuid_to_url_with_size(uuid, 1280))
+            && let Ok(cover_image) = self.fetch_cover_picture(&cover_url).await
+        {
+            tm.cover = Some(cover_image);
+        }
+
         // handle lyrics
         'once: {
             let lyrics_res = match self
@@ -187,7 +201,7 @@ impl Downloader {
             tm.copyright = None
         }
         if !t.cover {
-            tm.cover_url = None
+            tm.cover = None
         }
         if !t.date {
             tm.release_date = None

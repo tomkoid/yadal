@@ -1,14 +1,15 @@
 use std::{
     fs::File,
-    io::{BufWriter, Read, Seek, Write},
+    //io::{BufWriter, Read, Seek, Write},
+    io::{BufWriter, Write},
     path::{Path, PathBuf},
 };
 
 use crate::downloader::Downloader;
 
 use anyhow::{Context, Result, bail};
-use multitag::data::Picture;
-use reqwest::header::CONTENT_TYPE;
+use serde::Serialize;
+//use reqwest::header::CONTENT_TYPE;
 use symphonia::core::codecs::CodecParameters;
 use symphonia::core::formats::probe::Hint;
 use symphonia::core::formats::{FormatOptions, TrackType};
@@ -18,6 +19,29 @@ use tidlers::client::models::track::{
     Track,
     playback::{ManifestType, TrackPlaybackInfoResponse},
 };
+
+#[derive(Debug)]
+pub struct CoverImage {
+    pub data: Vec<u8>,
+    //  pub mime_type: String,
+}
+
+#[derive(Serialize)]
+pub struct TidalDateYmd {
+    pub day: Option<u64>,
+    pub month: Option<u64>,
+    pub year: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TidalDateYmdhms {
+    pub day: u64,
+    pub month: u64,
+    pub year: u64,
+    pub hour: u64,
+    pub minute: u64,
+    pub second: u64,
+}
 
 impl Downloader {
     pub fn needs_flac_remux(playback_info: &TrackPlaybackInfoResponse, extension: &str) -> bool {
@@ -35,31 +59,7 @@ impl Downloader {
             .context("remux task panicked")?
     }
 
-    pub fn sniff_tag_extension(&self, file: &mut std::fs::File, declared: &str) -> Result<String> {
-        let mut header = [0u8; 12];
-        let read = file
-            .read(&mut header)
-            .context("Failed to read file header")?;
-        file.rewind()
-            .context("Failed to rewind file after header read")?;
-
-        if read >= 8 && &header[4..8] == b"ftyp" {
-            return Ok("m4a".to_string());
-        }
-        if read >= 4 && &header[0..4] == b"fLaC" {
-            return Ok("flac".to_string());
-        }
-        if read >= 4 && &header[0..4] == b"OggS" {
-            return Ok("ogg".to_string());
-        }
-        if read >= 3 && &header[0..3] == b"ID3" {
-            return Ok("mp3".to_string());
-        }
-
-        Ok(declared.to_string())
-    }
-
-    pub async fn fetch_cover_picture(&self, cover_url: &str) -> Result<Picture> {
+    pub async fn fetch_cover_picture(&self, cover_url: &str) -> Result<CoverImage> {
         let response = self
             .http_client
             .get(cover_url)
@@ -72,12 +72,14 @@ impl Downloader {
             bail!("Cover art HTTP {}", response.status());
         }
 
+        /*
         let mime_type = response
             .headers()
             .get(CONTENT_TYPE)
             .and_then(|value| value.to_str().ok())
             .map(|value| value.split(';').next().unwrap_or(value).to_string())
             .unwrap_or_else(|| "image/jpeg".to_string());
+        */
 
         let data = response
             .bytes()
@@ -85,7 +87,8 @@ impl Downloader {
             .context("Failed to read cover art bytes")?
             .to_vec();
 
-        Ok(Picture { data, mime_type })
+        //Ok(CoverImage { data, mime_type })
+        Ok(CoverImage { data })
     }
 
     pub fn get_file_extension(playback_info: &TrackPlaybackInfoResponse) -> &str {
@@ -201,4 +204,40 @@ fn remux_mp4_flac_to_flac(input: &Path, output: &Path) -> Result<()> {
     writer.flush()?;
 
     Ok(())
+}
+
+pub fn parse_ymd(date: &str) -> Option<TidalDateYmd> {
+    let mut parts = date.split('T').next()?.split('-');
+    let year = parts.next()?.parse().ok()?;
+    let month = parts.next().and_then(|m| m.parse().ok());
+    let day = parts.next().and_then(|d| d.parse().ok());
+
+    Some(TidalDateYmd { day, month, year })
+}
+
+/// parse the ISO 8601 timestamp returned by TIDAL for playlists \
+/// important: it is NOT RFC 3339
+pub fn parse_ymdhms(date: &str) -> Option<TidalDateYmdhms> {
+    let (date_part, time_part) = date.split_once('T')?;
+
+    let mut d = date_part.split('-');
+    let year = d.next()?.parse().ok()?;
+    let month = d.next()?.parse().ok()?;
+    let day = d.next()?.parse().ok()?;
+
+    // only keep HH:MM:SS
+    let time_part = time_part.split(['.', '+', 'Z', '-']).next()?;
+    let mut t = time_part.split(':');
+    let hour = t.next()?.parse().ok()?;
+    let minute = t.next()?.parse().ok()?;
+    let second = t.next()?.parse().ok()?;
+
+    Some(TidalDateYmdhms {
+        day,
+        month,
+        year,
+        hour,
+        minute,
+        second,
+    })
 }
