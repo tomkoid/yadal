@@ -136,9 +136,11 @@ impl Downloader {
 
         let album = self.resolve_track_album(&track).await?;
 
+        /*
         println!("track: {}", track.title);
         println!("artist: {}", track.artist.name);
         println!("album: {}", album.title);
+        */
 
         Ok(TrackJob {
             track,
@@ -166,9 +168,11 @@ impl Downloader {
             MediaType::Album => {
                 let album = self.get_album_cached(id).await?;
 
+                /*
                 println!("album: {}", album.title);
                 println!("artist: {}", album.artist.name);
                 println!("tracks: {}", album.number_of_tracks);
+                */
 
                 let album = AlbumTagContext::from_album_response(&album);
                 let tracks = self.fetch_collection_tracks(id, media_type).await?;
@@ -197,9 +201,11 @@ impl Downloader {
                     .await
                     .context("Failed to get playlist info")?;
 
+                /*
                 println!("playlist: {}", playlist.title);
                 println!("creator: {}", playlist.creator.id);
                 println!("tracks: {}", playlist.number_of_tracks);
+                */
 
                 let playlist = PlaylistTemplateContext {
                     uuid: id.to_string(),
@@ -302,7 +308,7 @@ impl Downloader {
 
         if jobs.len() > 1 {
             println!(
-                "\ndownloading {} tracks in parallel (max {})...",
+                "downloading {} tracks in parallel (max {})...",
                 jobs.len(),
                 max_parallel
             );
