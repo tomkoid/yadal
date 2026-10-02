@@ -8,7 +8,7 @@ Yadal (Yet Another Downloader for TIDAL) is a pretty simple command-line tool fo
 
 This project serves as a practical showcase of [Tidlers](https://codeberg.org/tomkoid/tidlers), a Rust library for interacting with the TIDAL API. Yadal demonstrates how to build a complete application using Tidlers for authentication, API interaction, and media streaming.
 
-## Why another TIDAL downloader? 
+## Why another TIDAL downloader?
 
 - Download tracks, albums, and playlists from TIDAL in 24-bit, 192kHz
 - Download multiple albums at once
@@ -17,7 +17,8 @@ This project serves as a practical showcase of [Tidlers](https://codeberg.org/to
 - Parallel downloads
 - Works on Linux, macOS, and Windows (likely even more if you would want to)
 - Progress indicators for downloads
-- Tags downloaded audio with TIDAL metadata (title, artist, album, cover art)
+- Tags downloaded audio with files with all possible tags from TIDAL
+- Internal Rust library can be used anywhere
 
 ## Installation (Linux)
 
