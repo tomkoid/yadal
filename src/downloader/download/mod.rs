@@ -103,7 +103,7 @@ impl Downloader {
 
             let log = |msg: String| match pb {
                 Some(pb) if !pb.is_hidden() => pb.println(format!("  {msg}")),
-                _ => eprintln!("  {msg}")
+                _ => eprintln!("  {msg}"),
             };
 
             self.tag_downloaded_file(&final_path, &configured, &log)

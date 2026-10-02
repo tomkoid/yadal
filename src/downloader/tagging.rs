@@ -68,7 +68,9 @@ impl Downloader {
                         flac.save_to_path(output_path, WriteOptions::default())?;
                     }
                 }
-                _ => warn("unable to write URL tag, file does not support Vorbis Comments (not a FLAC file)")
+                _ => warn(
+                    "unable to write URL tag, file does not support Vorbis Comments (not a FLAC file)",
+                ),
             }
 
             file_type
@@ -115,10 +117,7 @@ impl Downloader {
                 .enumerate()
             {
                 if !success {
-                    warn(&format!(
-                        "failed to write artist {}: \"{}\"",
-                        i, artists[i]
-                    ));
+                    warn(&format!("failed to write artist {}: \"{}\"", i, artists[i]));
                 }
             }
         }
