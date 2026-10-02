@@ -1,4 +1,7 @@
-use tidlers::TidalClient;
+use std::{collections::HashMap, sync::Arc};
+
+use tidlers::{TidalClient, client::models::album::AlbumResponse};
+use tokio::sync::Mutex;
 
 use crate::downloader::config::DownloaderConfig;
 
@@ -17,6 +20,7 @@ pub struct Downloader {
     tidal_client: TidalClient,
     http_client: reqwest::Client,
     config: DownloaderConfig,
+    album_cache: Mutex<HashMap<String, Arc<AlbumResponse>>>,
 }
 
 impl Downloader {
@@ -27,6 +31,7 @@ impl Downloader {
             tidal_client,
             http_client,
             config,
+            album_cache: Mutex::new(HashMap::new()),
         }
     }
 }

@@ -24,7 +24,7 @@ pub mod json;
 #[derive(Debug, Clone)]
 pub struct TrackJob {
     pub track: Track,
-    pub album: Option<AlbumTagContext>,
+    pub album: AlbumTagContext,
     pub playlist: Option<PlaylistTemplateContext>,
     /// 1-based position inside the album/playlist (1 for standalone tracks)
     pub position: usize,
@@ -51,7 +51,7 @@ impl Downloader {
         let relative = render_track_path(
             templater,
             &job.track,
-            job.album.as_ref(),
+            &job.album,
             job.playlist.as_ref().map(|p| (p, job.position)),
             final_ext,
         )

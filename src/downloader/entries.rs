@@ -9,7 +9,10 @@ use std::{
 use anyhow::{Context, Result};
 use futures::{StreamExt, stream};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use tidlers::client::models::track::{Track, config::TrackPlaybackInfoConfig};
+use tidlers::client::models::{
+    album::AlbumResponse,
+    track::{Track, config::TrackPlaybackInfoConfig},
+};
 
 use crate::{
     downloader::{
@@ -17,7 +20,7 @@ use crate::{
         context::{AlbumTagContext, PlaylistTemplateContext},
         download::{TrackJob, TrackOutcome},
         rate_limiter::RateLimitState,
-        template::Templater,
+        template::{Templater, parse_ymdhms},
         ui::summary::DownloadSummary,
     },
     parser::Target,
@@ -43,6 +46,11 @@ impl Batch<'_> {
         self.status_bar
             .set_message(format!("downloading status: {}/{}", finished, self.total));
     }
+}
+
+struct ResolvedCollection {
+    jobs: Vec<TrackJob>,
+    failed: Vec<(String, anyhow::Error)>,
 }
 
 impl Downloader {
@@ -71,7 +79,10 @@ impl Downloader {
                     }
 
                     match self.resolve_collection(&target.id, media_type).await {
-                        Ok(jobs) => summary.merge(self.run_batch(jobs, &templater).await),
+                        Ok(collection) => {
+                            summary.failed.extend(collection.failed);
+                            summary.merge(self.run_batch(collection.jobs, &templater).await);
+                        },
                         Err(err) => summary.failed.push((target.id.clone(), err)),
                     }
                 }
@@ -85,6 +96,37 @@ impl Downloader {
         Ok(summary)
     }
 
+    async fn get_album_cached(&self, id: &str) -> Result<Arc<AlbumResponse>> {
+        if let Some(album) = self.album_cache.lock().await.get(id) {
+            return Ok(Arc::clone(album));
+        }
+
+        let album = Arc::new(
+            self.tidal_client
+                .get_album(id.to_string())
+                .await
+                .context("Failed to get album info")?,
+        );
+
+        self.album_cache
+            .lock()
+            .await
+            .insert(id.to_string(), Arc::clone(&album));
+
+        Ok(album)
+    }
+
+    async fn resolve_track_album(&self, track: &Track) -> Result<AlbumTagContext> {
+        let track_album = track.album.as_ref().context("Track has no album info")?;
+
+        let album = self
+            .get_album_cached(&track_album.id.to_string())
+            .await
+            .with_context(|| format!("Failed to get album info for {}", track_album.title))?;
+
+        Ok(AlbumTagContext::from_album_response(&album))
+    }
+
     async fn resolve_track(&self, id: &str) -> Result<TrackJob> {
         let track = self
             .tidal_client
@@ -92,29 +134,11 @@ impl Downloader {
             .await
             .context("Failed to get track info")?;
 
+        let album = self.resolve_track_album(&track).await?;
+
         println!("track: {}", track.title);
         println!("artist: {}", track.artist.name);
-
-        let album = match track.album.as_ref() {
-            Some(track_album) => {
-                println!("album: {}", track_album.title);
-                match self
-                    .tidal_client
-                    .get_album(track_album.id.to_string())
-                    .await
-                {
-                    Ok(album) => Some(AlbumTagContext::from_album_response(&album)),
-                    Err(err) => {
-                        eprintln!(
-                            "warning: failed to fetch album metadata for {}: {}",
-                            track_album.title, err
-                        );
-                        None
-                    }
-                }
-            }
-            None => None,
-        };
+        println!("album: {}", album.title);
 
         Ok(TrackJob {
             track,
@@ -124,20 +148,47 @@ impl Downloader {
         })
     }
 
-    async fn resolve_collection(&self, id: &str, media_type: MediaType) -> Result<Vec<TrackJob>> {
-        let (album, playlist) = match media_type {
+    /// Whether the 1-based position inside a collection is selected by `range`
+    fn position_in_range(&self, position: usize) -> bool {
+        self.config
+            .download
+            .range
+            .as_ref()
+            .is_none_or(|range| range.contains(&position))
+    }
+
+    async fn resolve_collection(
+        &self,
+        id: &str,
+        media_type: MediaType,
+    ) -> Result<ResolvedCollection> {
+        match media_type {
             MediaType::Album => {
-                let album = self
-                    .tidal_client
-                    .get_album(id.to_string())
-                    .await
-                    .context("Failed to get album info")?;
+                let album = self.get_album_cached(id).await?;
 
                 println!("album: {}", album.title);
                 println!("artist: {}", album.artist.name);
                 println!("tracks: {}", album.number_of_tracks);
 
-                (Some(AlbumTagContext::from_album_response(&album)), None)
+                let album = AlbumTagContext::from_album_response(&album);
+                let tracks = self.fetch_collection_tracks(id, media_type).await?;
+
+                let jobs = tracks
+                    .into_iter()
+                    .enumerate()
+                    .filter(|(index, _)| self.position_in_range(index + 1))
+                    .map(|(index, track)| TrackJob {
+                        track,
+                        album: album.clone(),
+                        playlist: None,
+                        position: index + 1,
+                    })
+                    .collect();
+
+                Ok(ResolvedCollection {
+                    jobs,
+                    failed: Vec::new(),
+                })
             }
             MediaType::Playlist => {
                 let playlist = self
@@ -150,38 +201,50 @@ impl Downloader {
                 println!("creator: {}", playlist.creator.id);
                 println!("tracks: {}", playlist.number_of_tracks);
 
-                (
-                    None,
-                    Some(PlaylistTemplateContext {
-                        uuid: id.to_string(),
-                        title: playlist.title.clone(),
-                        created: Some(playlist.created.clone()),
-                        last_updated: Some(playlist.last_updated.clone()),
-                    }),
-                )
+                let playlist = PlaylistTemplateContext {
+                    uuid: id.to_string(),
+                    title: playlist.title.clone(),
+                    created: parse_ymdhms(&playlist.created).with_context(|| {
+                        format!("Failed to parse playlist created date '{}'", playlist.created)
+                    })?,
+                    last_updated: parse_ymdhms(&playlist.last_updated).with_context(|| {
+                        format!(
+                            "Failed to parse playlist updated date '{}'",
+                            playlist.last_updated
+                        )
+                    })?,
+                };
+
+                let tracks = self.fetch_collection_tracks(id, media_type).await?;
+
+                println!("fetching album info for playlist tracks...");
+
+                let mut jobs = Vec::new();
+                let mut failed = Vec::new();
+
+                for (index, track) in tracks.into_iter().enumerate() {
+                    let position = index + 1;
+
+                    if !self.position_in_range(position) {
+                        continue;
+                    }
+
+                    // playlist tracks only carry a partial album, so we shall get the full one!
+                    match self.resolve_track_album(&track).await {
+                        Ok(album) => jobs.push(TrackJob {
+                            track,
+                            album,
+                            playlist: Some(playlist.clone()),
+                            position,
+                        }),
+                        Err(err) => failed.push((track.title.clone(), err)),
+                    }
+                }
+
+                Ok(ResolvedCollection { jobs, failed })
             }
             MediaType::Track => unreachable!("tracks are resolved with resolve_track"),
-        };
-
-        let tracks = self.fetch_collection_tracks(id, media_type).await?;
-
-        Ok(tracks
-            .into_iter()
-            .enumerate()
-            .filter(|(index, _)| {
-                self.config
-                    .download
-                    .range
-                    .as_ref()
-                    .is_none_or(|range| range.contains(&(index + 1)))
-            })
-            .map(|(index, track)| TrackJob {
-                track,
-                album: album.clone(),
-                playlist: playlist.clone(),
-                position: index + 1,
-            })
-            .collect())
+        }
     }
 
     async fn fetch_collection_tracks(&self, id: &str, media_type: MediaType) -> Result<Vec<Track>> {

@@ -3,12 +3,15 @@ use tidlers::{
     resources::uuid_to_url_with_size,
 };
 
+use crate::downloader::template::TidalDateYmdhms;
+
 #[derive(Debug, Clone)]
 pub struct AlbumTagContext {
     pub id: String,
     pub title: String,
     pub explicit: bool,
-    pub total_tracks: Option<u32>,
+    pub total_tracks: u32,
+    pub total_discs: u32,
     pub artist: String,
     pub release_date: Option<String>,
     pub cover_uuid: Option<String>,
@@ -65,7 +68,8 @@ impl AlbumTagContext {
         Self {
             id: album.id.to_string(),
             explicit: album.explicit,
-            total_tracks: Some(album.number_of_tracks),
+            total_tracks: album.number_of_tracks,
+            total_discs: album.number_of_volumes,
             title: album.title.clone(),
             artist: album.artist.name.clone(),
             release_date: Some(album.release_date.clone()),
@@ -78,32 +82,16 @@ impl AlbumTagContext {
     }
 }
 
-impl AlbumTagContext {
-    pub fn from_track(track: &Track) -> Self {
-        let album = track.album.as_ref().unwrap();
-
-        Self {
-            id: album.id.to_string(),
-            title: album.title.clone(),
-            explicit: false, // not set in Track model
-            total_tracks: None,
-            artist: track.artist.name.clone(),
-            release_date: album.release_date.clone(),
-            cover_uuid: album.cover.clone(),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct PlaylistTemplateContext {
     pub uuid: String,
     pub title: String,
-    pub created: Option<String>,
-    pub last_updated: Option<String>,
+    pub created: TidalDateYmdhms,
+    pub last_updated: TidalDateYmdhms,
 }
 
 impl TrackTagMetadata {
-    pub fn from_track(track: &Track, album_context: &Option<AlbumTagContext>) -> Self {
+    pub fn from_track(track: &Track, album: &AlbumTagContext) -> Self {
         let artists = if track.artists.is_empty() {
             vec![track.artist.name.clone()]
         } else {
@@ -114,41 +102,16 @@ impl TrackTagMetadata {
                 .collect()
         };
 
-        let (album_title, album_artist, release_date, cover_url) = match album_context {
-            Some(context) => (
-                Some(context.title.clone()),
-                Some(context.artist.clone()),
-                context.release_date.clone(),
-                context
-                    .cover_uuid
-                    .as_deref()
-                    .map(|uuid| uuid_to_url_with_size(uuid, 1280))
-                    .or_else(|| {
-                        track
-                            .album
-                            .as_ref()
-                            .unwrap()
-                            .cover
-                            .as_deref()
-                            .map(|uuid| uuid_to_url_with_size(uuid, 1280))
-                    }),
-            ),
-            None => (
-                Some(track.album.as_ref().unwrap().title.clone()),
-                Some(track.artist.name.clone()),
-                track.album.as_ref().unwrap().release_date.clone(),
-                track
-                    .album
-                    .as_ref()
-                    .unwrap()
-                    .cover
-                    .as_deref()
-                    .map(|uuid| uuid_to_url_with_size(uuid, 1280)),
-            ),
-        };
+        let album_title = Some(album.title.clone());
+        let release_date = album.release_date.clone();
+        let cover_url = album
+            .cover_uuid
+            .as_deref()
+            .or_else(|| track.album.as_ref().and_then(|a| a.cover.as_deref()))
+            .map(|uuid| uuid_to_url_with_size(uuid, 1280));
 
         // temporary until tidlers implements getting multiple album artists
-        let album_artists = album_artist.map(|unwrapped_album_artist| vec![unwrapped_album_artist]);
+        let album_artists = Some(vec![album.artist.clone()]);
 
         let track_number = track.track_number;
 
@@ -170,8 +133,8 @@ impl TrackTagMetadata {
             disc_number: Some(track.volume_number),
             isrc: track.isrc.clone(),
             replaygain: TagReplayGain::None,
-            total_discs: None,
-            total_tracks: None,
+            total_discs: Some(album.total_discs),
+            total_tracks: Some(album.total_tracks),
             url: Some(track.url.clone()),
         }
     }

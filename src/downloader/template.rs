@@ -37,19 +37,17 @@ pub struct TemplateAlbumCtx<'a> {
     pub release: Option<TidalDateYmd>,
     pub id: &'a str,
     pub title: &'a str,
-    // temporary Option, not implemented in tidlers right now
-    pub total_discs: Option<u32>,
-    // temporary Option, not implemented in tidlers right now
-    pub total_tracks: Option<u32>,
+    pub total_discs: u32,
+    pub total_tracks: u32,
     pub url: String,
 }
 
 #[derive(Serialize)]
 pub struct TemplatePlaylistCtx<'a> {
-    pub created: Option<TidalDateYmdhms>,
+    pub created: &'a TidalDateYmdhms,
     pub index: u32,
     pub title: &'a str,
-    pub updated: Option<TidalDateYmdhms>,
+    pub updated: &'a TidalDateYmdhms,
     pub url: String,
     pub uuid: &'a str,
 }
@@ -61,7 +59,7 @@ pub struct TidalDateYmd {
     pub year: u64,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TidalDateYmdhms {
     pub day: u64,
     pub month: u64,
@@ -128,7 +126,7 @@ fn parse_ymd(date: &str) -> Option<TidalDateYmd> {
 
 /// parse the ISO 8601 timestamp returned by TIDAL for playlists \
 /// important: it is NOT RFC 3339
-fn parse_ymdhms(date: &str) -> Option<TidalDateYmdhms> {
+pub fn parse_ymdhms(date: &str) -> Option<TidalDateYmdhms> {
     let (date_part, time_part) = date.split_once('T')?;
 
     let mut d = date_part.split('-');
@@ -156,19 +154,10 @@ fn parse_ymdhms(date: &str) -> Option<TidalDateYmdhms> {
 pub fn render_track_path(
     templater: &Templater,
     track: &Track,
-    album: Option<&AlbumTagContext>,
+    album: &AlbumTagContext,
     playlist: Option<(&PlaylistTemplateContext, usize)>,
     extension: &str,
 ) -> Result<PathBuf, minijinja::Error> {
-    let fallback;
-    let album = match album {
-        Some(album) => album,
-        None => {
-            fallback = AlbumTagContext::from_track(track);
-            &fallback
-        }
-    };
-
     let track_id = track.id.to_string();
     let artists = if track.artists.is_empty() {
         vec![track.artist.name.as_str()]
@@ -203,15 +192,15 @@ pub fn render_track_path(
             release: album.release_date.as_deref().and_then(parse_ymd),
             id: &album.id,
             title: &album.title,
-            total_discs: None,
+            total_discs: album.total_discs,
             total_tracks: album.total_tracks,
             url: format!("https://tidal.com/album/{}", album.id),
         },
         playlist: playlist.map(|(p, position)| TemplatePlaylistCtx {
-            created: p.created.as_deref().and_then(parse_ymdhms),
+            created: &p.created,
             index: position as u32,
             title: &p.title,
-            updated: p.last_updated.as_deref().and_then(parse_ymdhms),
+            updated: &p.last_updated,
             url: format!("https://tidal.com/playlist/{}", p.uuid),
             uuid: &p.uuid,
         }),
