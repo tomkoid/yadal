@@ -7,7 +7,7 @@ use std::{
 
 use crate::{args::QualityArg, downloader::template::validate};
 
-const OUTPUT_TEMPLATE: &str = "{{ album.artists[0] }}/{{ album.title }}/{{ \"%02d\"|format(track.number) }} {{ track.title }}{% if track.version %} ({{ track.version }}){% endif %}{% if track.explicit %} (Explicit){% endif %}.{{ track.extension }}";
+const OUTPUT_TEMPLATE: &str = "{{ album.artists[0] }}/{{ album.title }}{% if album.explicit %} (Explicit){% endif %}/{{ \"%02d\"|format(track.number) }} {{ track.title }}{% if track.version %} ({{ track.version }}){% endif %}{% if track.explicit %} (Explicit){% endif %}.{{ track.extension }}";
 
 #[derive(Debug, thiserror::Error)]
 pub enum FileConfigError {
@@ -251,7 +251,7 @@ fn test_config_deserialization() {
     let toml_str = r#"
 		[download]
 		output_path = "/path/to/output"
-		output_template = "{{ album.artists[0] }}/{{ album.title }}/{{ \"%02d\"|format(track.number) }} {{ track.title }}{% if track.version %} ({{ track.version }}){% endif %}{% if track.explicit %} (Explicit){% endif %}.{{ track.extension }}"
+		output_template = "{{ album.artists[0] }}/{{ album.title }}{% if album.explicit %} (Explicit){% endif %}/{{ "%02d"|format(track.number) }} {{ track.title }}{% if track.version %} ({{ track.version }}){% endif %}{% if track.explicit %} (Explicit){% endif %}.{{ track.extension }}"
 		audio_quality = "high"
 		max_parallel = 5
 		force_download = false
