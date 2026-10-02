@@ -2,7 +2,7 @@
 name = "yadal"
 version = "0.3.0"
 edition = "2024"
-rust-version = "1.88.0"
+rust-version = "1.89.0"
 publish = false
 
 [profile.rpm]
@@ -17,7 +17,6 @@ bytes = "1.9"
 serde_json = "1.0"
 anyhow = "1.0"
 indicatif = "0.17"
-multitag = { git = "https://github.com/tomkoid/multitag" } 
 tidlers = { git = "https://codeberg.org/tomkoid/tidlers", rev = "fc1d6a86cb1ed30a64209617d8867e5da3ece946" }
 # tidlers = { path = "/home/tom/Coding/rust/tidlers" }
 directories = "5.0"
@@ -31,3 +30,4 @@ serde = "1.0.229"
 thiserror = "2.0.21"
 regex = "1.13.1"
 minijinja = "2.24.0"
+lofty = "0.25.4"

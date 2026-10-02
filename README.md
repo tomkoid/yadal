@@ -48,7 +48,7 @@ Or you can install it system-wide like any other flake using the `flake.nix`.
 ### From source (Linux, macOS, Windows)
 
 To build and install Yadal, you need to have Rust installed. You can install Rust using [rustup](https://rustup.rs/).
-Rust 1.88+ is required.
+Rust 1.89+ is required.
 
 ```bash
 cargo install --git https://codeberg.org/tomkoid/yadal --locked
