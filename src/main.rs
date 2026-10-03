@@ -105,7 +105,7 @@ async fn cmd_download(command: Commands) -> Result<()> {
 
     let download_path = if let Some(path) = expand_home_symbol(&d.output_path) {
         if !PathBuf::from(&path).try_exists()? {
-           create_dir_all(&path)?;
+            create_dir_all(&path)?;
         }
 
         path

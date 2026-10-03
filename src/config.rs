@@ -160,11 +160,14 @@ impl FileConfig {
 
             let audio_dir = audio_dir.canonicalize()?;
 
-            config.download.output_path = if let Some(replaced_path) = replace_with_home_symbol(&audio_dir) {
-                replaced_path
-            } else {
-                return Err(FileConfigError::ReplaceWithHomeSymbol(audio_dir.display().to_string()));
-            };
+            config.download.output_path =
+                if let Some(replaced_path) = replace_with_home_symbol(&audio_dir) {
+                    replaced_path
+                } else {
+                    return Err(FileConfigError::ReplaceWithHomeSymbol(
+                        audio_dir.display().to_string(),
+                    ));
+                };
 
             Ok(config)
         }
