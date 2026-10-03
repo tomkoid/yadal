@@ -1,11 +1,11 @@
 Name:           yadal
-Version:        0.3.0
+Version:        0.4.0
 Release:        1%{?dist}
 Summary:        Command-line TIDAL music downloader
 
 License:        GPL-3.0-only
 URL:            https://codeberg.org/tomkoid/yadal
-Source0:        https://codeberg.org/tomkoid/yadal/archive/main.tar.gz
+Source0:        https://codeberg.org/tomkoid/yadal/archive/0.4.0.tar.gz
 
 BuildRequires:  cargo
 BuildRequires:  rust-packaging
@@ -32,5 +32,7 @@ install -Dpm0755 target/rpm/yadal %{buildroot}%{_bindir}/yadal
 %{_bindir}/yadal
 
 %changelog
+* Sat Oct 03 2026 Tomkoid <tomkoid@tomkoid.cz> - 0.4.0-1
+- Bump version to 0.4.0
 * Wed Sep 23 2026 Tomkoid <tomkoid@tomkoid.cz> - 0.3.0-1
 - Initial package
