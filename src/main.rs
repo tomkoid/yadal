@@ -31,7 +31,7 @@ use crate::{
 async fn main() -> Result<()> {
     let cli = Cli::parse();
     if cli.trace {
-        tracing::configure();
+        tracing::enable_tidlers_tracing();
     }
 
     match cli.command {

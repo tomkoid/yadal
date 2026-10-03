@@ -28,6 +28,7 @@ use crate::{
         utils::parse_ymdhms,
     },
     parser::Target,
+    tracing,
     types::MediaType,
 };
 
@@ -353,7 +354,7 @@ impl Downloader {
             );
         }
 
-        let multi_progress = MultiProgress::new();
+        let multi_progress = tracing::multi_progress().clone();
         let status_bar = multi_progress.add(ProgressBar::hidden());
         status_bar.set_style(ProgressStyle::default_bar().template("{msg}").unwrap());
         status_bar.enable_steady_tick(Duration::from_millis(100));
