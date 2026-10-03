@@ -179,24 +179,10 @@ impl Downloader {
     fn is_found<T>(response: Result<T, TidalError>) -> Result<bool, TidalError> {
         match response {
             Ok(_) => Ok(true),
-            Err(err) => {
-                // temporary while tidlers fixes the behaviour of requests so it actually returns TidalError::NotFound
-                if Self::is_tidal_error_404(&err) {
-                    Ok(false)
-                } else {
-                    Err(err)
-                }
-            }
-        }
-    }
-
-    fn is_tidal_error_404(error: &TidalError) -> bool {
-        match &error {
-            TidalError::RequestClient(tidlers::requests::RequestClientError::StatusCode {
-                status,
-                ..
-            }) => *status == 404,
-            _ => false,
+            Err(err) => match err {
+                TidalError::NotFound => Ok(false),
+                err => Err(err),
+            },
         }
     }
 

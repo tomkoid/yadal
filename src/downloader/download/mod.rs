@@ -143,11 +143,17 @@ impl Downloader {
                 Err(_) => break 'once,
             };
 
-            tm.lyrics = if let Some(synced_lyrics) = lyrics_res.subtitles {
-                TagLyrics::UnsyncedAndSynced(lyrics_res.lyrics, synced_lyrics)
+            tm.lyrics = if let Some(ref unsynced_lyrics) = lyrics_res.lyrics
+                && let Some(ref synced_lyrics) = lyrics_res.subtitles
+            {
+                TagLyrics::UnsyncedAndSynced(unsynced_lyrics.to_owned(), synced_lyrics.to_owned())
+            } else if let Some(ref unsynced_lyrics) = lyrics_res.lyrics {
+                TagLyrics::UnsyncedOnly(unsynced_lyrics.to_owned())
+            } else if let Some(ref synced_lyrics) = lyrics_res.subtitles {
+                TagLyrics::SyncedOnly(synced_lyrics.to_owned())
             } else {
-                TagLyrics::UnsyncedOnly(lyrics_res.lyrics)
-            };
+                TagLyrics::None
+            }
         }
 
         // handle ReplayGain
