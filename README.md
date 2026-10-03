@@ -2,7 +2,7 @@
 
 Yadal (Yet Another Downloader for TIDAL) is a pretty simple command-line tool for downloading music from TIDAL. It supports downloading individual tracks, albums, and playlists with configurable audio quality settings.
 
-[![asciicast](https://asciinema.org/a/1262584.svg)](https://asciinema.org/a/1262584)
+[![asciicast](https://asciinema.org/a/1267377.svg)](https://asciinema.org/a/1267377)
 
 ## Purpose
 
