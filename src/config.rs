@@ -31,6 +31,7 @@ pub enum FileConfigError {
 pub struct FileConfig {
     pub download: Download,
     pub tags: Tags,
+    pub ui: Ui,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -67,6 +68,12 @@ pub struct Tags {
     pub track_number: bool,
     pub track_version: bool,
     pub url: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(default)]
+pub struct Ui {
+    pub show_user_info: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Default, Deserialize, Serialize)]
@@ -125,6 +132,14 @@ impl Default for Tags {
             track_number: true,
             track_version: true,
             url: true,
+        }
+    }
+}
+
+impl Default for Ui {
+    fn default() -> Self {
+        Self {
+            show_user_info: true,
         }
     }
 }

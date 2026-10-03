@@ -102,6 +102,7 @@ async fn cmd_download(command: Commands) -> Result<()> {
 
     let d = &config.download;
     let t = &config.tags;
+    let u = &config.ui;
 
     let download_path = if let Some(path) = expand_home_symbol(&d.output_path) {
         if !PathBuf::from(&path).try_exists()? {
@@ -161,11 +162,14 @@ async fn cmd_download(command: Commands) -> Result<()> {
 
     // refresh user info, thus validating the session and ensuring we have the latest user info
     client.refresh_user_info().await?;
-    let user_info = client.user_info.as_ref().unwrap();
-    println!(
-        "logged in as: {} ({})\n",
-        user_info.user_id, user_info.username
-    );
+
+    if u.show_user_info {
+        let user_info = client.user_info.as_ref().unwrap();
+        println!(
+            "logged in as: {} ({})\n",
+            user_info.user_id, user_info.username
+        );
+    }
 
     println!("audio quality: {:?}", options.download.audio_quality);
     println!(
