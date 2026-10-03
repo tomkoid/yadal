@@ -10,15 +10,13 @@ This project serves as a practical showcase of [Tidlers](https://codeberg.org/to
 
 ## Why another TIDAL downloader?
 
-- Download tracks, albums, and playlists from TIDAL in 24-bit, 192kHz
-- Download multiple albums at once
-- Support for multiple audio quality levels: low, high, lossless, and hi-res
-- Download range of tracks from an album or playlist (`--range`)
-- Parallel downloads
-- Works on Windows, macOS, Linux, FreeBSD, and more!
-- Progress indicators for downloads
-- Tags downloaded audio with files with all possible tags from TIDAL
-- Internal Rust library can be used anywhere
+- Download tracks, albums, and playlists from TIDAL in 96 kbps up to 24-bit, 192kHz
+- Download media concurrently
+- Display a high level of downloading information, including progress bars
+- Easily download specific (range of) tracks from an album or playlist
+- Tags downloaded audio with files with a wide range of information
+- Works on Windows, macOS, Linux, FreeBSD, and more
+- [Internal Rust library](https://codeberg.org/tomkoid/tidlers) can be used anywhere without the CLI
 
 ## Installation (Linux)
 
@@ -95,7 +93,7 @@ As well as in one command:
 yadal download 437468401 55130630 aa692128-2954-4fe1-b5a1-4ede1add485d
 ```
 
-The tool will automatically detect the media type based on the ID format.
+The tool will automatically discover the media type without explicitly knowing it.
 
 ### Options
 
@@ -146,7 +144,7 @@ On first run, Yadal will initiate a PKCE flow by default:
 
 1. A login URL will be displayed in your terminal
 2. Visit the URL and authorize the application in your browser
-3. After redirect to an error page, copy and paste the full redirect URL back into the terminal
+3. After it redirects to a not found error page, copy and paste the full redirect URL (in your search bar) back into the terminal
 4. The session will be saved automatically
 
 If you pass `--oauth2`, Yadal will use the legacy OAuth2 device flow instead. This flow is less stable and should be used only if you do not want to download in full quality.
