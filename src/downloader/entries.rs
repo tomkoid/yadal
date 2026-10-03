@@ -9,9 +9,12 @@ use std::{
 use anyhow::{Context, Result};
 use futures::{StreamExt, stream};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use tidlers::client::models::{
-    album::AlbumResponse,
-    track::{Track, config::TrackPlaybackInfoConfig},
+use tidlers::{
+    TidalError,
+    client::models::{
+        album::AlbumResponse,
+        track::{Track, config::TrackPlaybackInfoConfig},
+    },
 };
 
 use crate::{
@@ -68,7 +71,12 @@ impl Downloader {
         let mut pending_tracks: Vec<TrackJob> = Vec::new();
 
         for target in targets {
-            match forced_type.unwrap_or(target.media_type) {
+            let media_type = match forced_type.or(target.media_type) {
+                Some(media_type) => media_type,
+                None => self.is_album_or_track(&target.id).await?,
+            };
+
+            match media_type {
                 MediaType::Track => match self.resolve_track(&target.id).await {
                     Ok(job) => pending_tracks.push(job),
                     Err(err) => summary.failed.push((target.id.clone(), err)),
@@ -149,6 +157,47 @@ impl Downloader {
             playlist: None,
             position: 1,
         })
+    }
+
+    async fn is_album_or_track(&self, id: &str) -> std::result::Result<MediaType, TidalError> {
+        let (track, album) = tokio::join!(
+            self.tidal_client.get_track(id),
+            self.tidal_client.get_album(id),
+        );
+
+        let track_ok = Self::is_found(track)?;
+        let album_ok = Self::is_found(album)?;
+
+        // hopefully these two values somehow aren't true at the same time...
+        match (track_ok, album_ok) {
+            (true, false) => Ok(MediaType::Track),
+            (false, true) => Ok(MediaType::Album),
+            _ => Err(TidalError::NotFound),
+        }
+    }
+
+    fn is_found<T>(response: Result<T, TidalError>) -> Result<bool, TidalError> {
+        match response {
+            Ok(_) => Ok(true),
+            Err(err) => {
+                // temporary while tidlers fixes the behaviour of requests so it actually returns TidalError::NotFound
+                if Self::is_tidal_error_404(&err) {
+                    Ok(false)
+                } else {
+                    Err(err)
+                }
+            }
+        }
+    }
+
+    fn is_tidal_error_404(error: &TidalError) -> bool {
+        match &error {
+            TidalError::RequestClient(tidlers::requests::RequestClientError::StatusCode {
+                status,
+                ..
+            }) => *status == 404,
+            _ => false,
+        }
     }
 
     /// Whether the 1-based position inside a collection is selected by `range`

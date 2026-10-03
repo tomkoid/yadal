@@ -21,11 +21,11 @@ static TIDAL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 
 pub struct Target {
     pub id: String,
-    pub media_type: MediaType,
+    pub media_type: Option<MediaType>,
 }
 
 impl Target {
-    pub fn new(id: String, media_type: MediaType) -> Self {
+    pub fn new(id: String, media_type: Option<MediaType>) -> Self {
         Self { id, media_type }
     }
 }
@@ -35,19 +35,19 @@ fn parse_one(value: &str) -> Option<Target> {
 
     if let Some(raw) = caps.name("raw") {
         let typ = if raw.as_str().contains('-') {
-            MediaType::Playlist
+            Some(MediaType::Playlist)
         } else {
-            MediaType::Track
+            None
         };
 
         return Some(Target::new(raw.as_str().to_owned(), typ));
     }
 
     let typ = match caps["kind"].to_ascii_lowercase().as_str() {
-        "track" => MediaType::Track,
-        "album" => MediaType::Album,
-        "playlist" => MediaType::Playlist,
-        _ => return None,
+        "track" => Some(MediaType::Track),
+        "album" => Some(MediaType::Album),
+        "playlist" => Some(MediaType::Playlist),
+        _ => None,
     };
 
     Some(Target::new(caps["id"].to_owned(), typ))
@@ -72,7 +72,7 @@ mod tests {
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "437468401");
-        assert!(matches!(target.media_type, MediaType::Track));
+        assert!(matches!(target.media_type, Some(MediaType::Track)));
     }
 
     #[test]
@@ -83,7 +83,7 @@ mod tests {
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "437468401");
-        assert!(matches!(target.media_type, MediaType::Track));
+        assert!(matches!(target.media_type, Some(MediaType::Track)));
     }
 
     #[test]
@@ -94,7 +94,7 @@ mod tests {
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "437468401");
-        assert!(matches!(target.media_type, MediaType::Track));
+        assert!(matches!(target.media_type, Some(MediaType::Track)));
     }
 
     #[test]
@@ -105,7 +105,7 @@ mod tests {
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "55130630");
-        assert!(matches!(target.media_type, MediaType::Album));
+        assert!(matches!(target.media_type, Some(MediaType::Album)));
     }
 
     #[test]
@@ -116,7 +116,7 @@ mod tests {
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "55130630");
-        assert!(matches!(target.media_type, MediaType::Album));
+        assert!(matches!(target.media_type, Some(MediaType::Album)));
     }
 
     #[test]
@@ -127,7 +127,7 @@ mod tests {
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "55130630");
-        assert!(matches!(target.media_type, MediaType::Album));
+        assert!(matches!(target.media_type, Some(MediaType::Album)));
     }
 
     #[test]
@@ -139,7 +139,7 @@ mod tests {
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "aa692128-2954-4fe1-b5a1-4ede1add485d");
-        assert!(matches!(target.media_type, MediaType::Playlist));
+        assert!(matches!(target.media_type, Some(MediaType::Playlist)));
     }
 
     #[test]
@@ -151,7 +151,7 @@ mod tests {
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "aa692128-2954-4fe1-b5a1-4ede1add485d");
-        assert!(matches!(target.media_type, MediaType::Playlist));
+        assert!(matches!(target.media_type, Some(MediaType::Playlist)));
     }
 
     #[test]
@@ -162,7 +162,7 @@ mod tests {
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "437468401");
-        assert!(matches!(target.media_type, MediaType::Track));
+        assert!(target.media_type.is_none());
     }
 
     #[test]
@@ -173,7 +173,7 @@ mod tests {
         assert_eq!(targets.len(), 1);
         let target = &targets[0];
         assert_eq!(target.id, "aa692128-2954-4fe1-b5a1-4ede1add485d");
-        assert!(matches!(target.media_type, MediaType::Playlist));
+        assert!(matches!(target.media_type, Some(MediaType::Playlist)));
     }
 
     #[test]
@@ -189,12 +189,12 @@ mod tests {
         assert_eq!(targets.len(), 3);
 
         assert_eq!(targets[0].id, "437468401");
-        assert!(matches!(targets[0].media_type, MediaType::Track));
+        assert!(targets[0].media_type.is_none());
 
         assert_eq!(targets[1].id, "aa692128-2954-4fe1-b5a1-4ede1add485d");
-        assert!(matches!(targets[1].media_type, MediaType::Playlist));
+        assert!(matches!(targets[1].media_type, Some(MediaType::Playlist)));
 
         assert_eq!(targets[2].id, "55130630");
-        assert!(matches!(targets[2].media_type, MediaType::Album));
+        assert!(matches!(targets[2].media_type, Some(MediaType::Album)));
     }
 }
