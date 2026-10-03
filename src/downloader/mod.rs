@@ -1,9 +1,9 @@
-use std::sync::Arc;
-use std::sync::atomic::AtomicUsize;
-use tidlers::TidalClient;
+use std::{collections::HashMap, sync::Arc};
+
+use tidlers::{TidalClient, client::models::album::AlbumResponse};
+use tokio::sync::Mutex;
 
 use crate::downloader::config::DownloaderConfig;
-use crate::downloader::download::QueuedTrack;
 
 pub mod config;
 pub mod context;
@@ -11,6 +11,7 @@ pub mod download;
 pub mod entries;
 pub mod rate_limiter;
 pub mod tagging;
+pub mod template;
 pub mod ui;
 pub mod utils;
 
@@ -18,45 +19,19 @@ pub mod utils;
 pub struct Downloader {
     tidal_client: TidalClient,
     http_client: reqwest::Client,
-
-    state: DownloaderState,
     config: DownloaderConfig,
+    album_cache: Mutex<HashMap<String, Arc<AlbumResponse>>>,
 }
 
 impl Downloader {
     pub fn new(tidal_client: TidalClient, config: DownloaderConfig) -> Self {
-        let state = DownloaderState::new();
         let http_client = reqwest::Client::new();
 
         Self {
             tidal_client,
             http_client,
             config,
-            state,
-        }
-    }
-
-    pub fn reset_state(&mut self) {
-        self.state = DownloaderState::new();
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct DownloaderState {
-    queued: Vec<QueuedTrack>,
-    finished: Arc<AtomicUsize>,
-
-    multi_progress: Option<indicatif::MultiProgress>,
-    status_bar: Option<indicatif::ProgressBar>,
-}
-
-impl DownloaderState {
-    pub fn new() -> Self {
-        Self {
-            queued: Vec::new(),
-            finished: Arc::new(AtomicUsize::new(0)),
-            multi_progress: None,
-            status_bar: None,
+            album_cache: Mutex::new(HashMap::new()),
         }
     }
 }

@@ -2,6 +2,7 @@
 name = "yadal"
 version = "0.3.0"
 edition = "2024"
+rust-version = "1.89.0"
 publish = false
 
 [profile.rpm]
@@ -16,13 +17,17 @@ bytes = "1.9"
 serde_json = "1.0"
 anyhow = "1.0"
 indicatif = "0.17"
-multitag = { git = "https://github.com/tomkoid/multitag" } 
-tidlers = { git = "https://codeberg.org/tomkoid/tidlers", rev = "b71d460c9c5ebf2dbcb6dd60657bddb15fcd1b62" }
+tidlers = { git = "https://codeberg.org/tomkoid/tidlers", rev = "7f0a0d012b67bb33ce2b9145074ccb7c4dbe5f7c" }
 # tidlers = { path = "/home/tom/Coding/rust/tidlers" }
 directories = "5.0"
 dirs = "6.0.0"
 reqwest = { version = "0.13.4", features = ["stream"] }
-which = "8.0.5"
 crossterm = "0.29.0"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 symphonia = { version = "0.6.1", default-features = false, features = ["isomp4"] }
+toml = "1.1.6"
+serde = "1.0.229"
+thiserror = "2.0.21"
+regex = "1.13.1"
+minijinja = "2.24.0"
+lofty = "0.25.4"

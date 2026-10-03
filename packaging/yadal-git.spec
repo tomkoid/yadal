@@ -14,7 +14,6 @@ Source0:        %{repo}/archive/%{branch}.tar.gz
 BuildRequires:  cargo
 BuildRequires:  rust-packaging
 BuildRequires:  rustc
-Requires:       /usr/bin/ffmpeg
 
 %description
 Yadal (Yet Another Downloader for TIDAL) is a development snapshot of the

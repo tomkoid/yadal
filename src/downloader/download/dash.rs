@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 use crate::downloader::Downloader;
 use anyhow::{Context, Result};
@@ -12,7 +12,7 @@ impl Downloader {
     pub async fn download_dash_track_pb(
         &self,
         dash: &DashManifest,
-        output_path: &PathBuf,
+        output_path: &Path,
         track_title: &str,
         pb: Option<&ProgressBar>,
     ) -> Result<()> {
@@ -35,7 +35,9 @@ impl Downloader {
             self.download_segment(init_url).await?
         } else {
             if let Some(pb) = pb {
-                pb.set_message("{track_title}: No initialization segment found, skipping...");
+                pb.set_message(format!(
+                    "{track_title}: No initialization segment found, skipping..."
+                ));
                 tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             }
 

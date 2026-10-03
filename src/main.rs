@@ -1,12 +1,13 @@
-use std::process::exit;
+use std::fs::create_dir_all;
+use std::path::PathBuf;
 
-use anyhow::{Context, Result};
+use anyhow::{Result, bail};
 use clap::Parser;
 
 mod args;
 mod auth;
+mod config;
 mod downloader;
-mod output;
 mod parser;
 mod tracing;
 mod types;
@@ -15,10 +16,14 @@ use auth::{authenticate, load_or_authenticate};
 use downloader::Downloader;
 use types::MediaType;
 
+use crate::args::Commands;
+use crate::config::expand_home_symbol;
 use crate::{
     args::{Cli, MediaTypeArg},
-    downloader::{config::DownloaderConfig, ui::summary::DownloadSummary},
-    output::prepare_output_directory,
+    config::FileConfig,
+    downloader::{
+        config::DownloaderConfig, config::DownloaderConfigDownload, config::DownloaderConfigTags,
+    },
     parser::parse_id_input,
 };
 
@@ -29,121 +34,10 @@ async fn main() -> Result<()> {
         tracing::configure();
     }
 
-    // authenticate
-    let mut client = if cli.reauth {
-        println!("forcing re-authentication...\n");
-        authenticate(&cli.session_file, cli.oauth2).await?
-    } else {
-        load_or_authenticate(&cli.session_file, cli.oauth2).await?
-    };
-
-    // refresh user info, thus validating the session and ensuring we have the latest user info
-    client.refresh_user_info().await?;
-    let user_info = client.user_info.as_ref().unwrap();
-    println!(
-        "logged in as: {} ({})\n",
-        user_info.user_id, user_info.username
-    );
-
-    if cli.id.contains("upload") {
-        eprintln!(
-            "error: uploads are not supported yet. please provide a valid track, album, or playlist ID."
-        );
-        exit(1);
+    match cli.command {
+        Commands::InitConfigFile => cmd_init_config_file(),
+        command @ Commands::Download { .. } => cmd_download(command).await,
     }
-
-    // parse IDs and determine media type
-    let targets = parse_id_input(&cli.id);
-
-    let output_path = match cli.output {
-        Some(path) => path,
-        None => prepare_output_directory().context("Failed to prepare output directory")?,
-    };
-
-    // check if ffmpeg is available for transcoding
-    let can_transcode = which::which("ffmpeg").is_ok();
-    let skip_transcode = cli.skip_transcode || !can_transcode;
-
-    if !can_transcode && !cli.skip_transcode {
-        eprintln!(
-            "warning: ffmpeg not found, skipping transcoding. Install ffmpeg to enable transcoding.\n"
-        );
-    }
-
-    // this is not necessarilly needed right now but will be used if a config file is added
-    let options = DownloaderConfig {
-        output_path,
-        audio_quality: cli.quality.into(),
-        force_download: cli.force,
-        no_stream_check: cli.no_stream_check,
-        max_parallel: cli.parallel,
-        lyrics: cli.lyrics,
-        range: cli.range,
-        skip_tag: cli.skip_tag,
-        skip_transcode,
-    };
-
-    // create downloader
-    let mut downloader = Downloader::new(client, options.clone());
-
-    println!("audio quality: {:?}", options.audio_quality);
-    println!("output directory: {}", options.output_path.display());
-
-    print_full_line();
-
-    let mut summaries: Vec<DownloadSummary> = Vec::new();
-    for target in targets {
-        downloader.reset_state();
-
-        let media_type = match cli.media_type {
-            MediaTypeArg::Track => MediaType::Track,
-            MediaTypeArg::Album => MediaType::Album,
-            MediaTypeArg::Playlist => MediaType::Playlist,
-            MediaTypeArg::Auto => target.media_type,
-        };
-
-        // download based on type
-        let summary = match media_type {
-            MediaType::Track => {
-                println!("downloading track {}...", target.id);
-                downloader.download_track(&target.id).await?
-            }
-            MediaType::Album => {
-                println!("downloading album {}...", target.id);
-                downloader
-                    .download_media(&target.id, MediaType::Album)
-                    .await?
-            }
-            MediaType::Playlist => {
-                println!("downloading playlist {}...", target.id);
-                downloader
-                    .download_media(&target.id, MediaType::Playlist)
-                    .await?
-            }
-        };
-
-        println!(
-            "summary for {}: {} downloaded, {} skipped, {} failed",
-            target.id,
-            summary.downloaded,
-            summary.skipped,
-            summary.failed.len()
-        );
-
-        summaries.push(summary);
-
-        print_full_line();
-    }
-
-    let mut total_summary = DownloadSummary::new();
-    for summary in summaries {
-        total_summary.downloaded += summary.downloaded;
-        total_summary.skipped += summary.skipped;
-        total_summary.failed.extend(summary.failed);
-    }
-
-    total_summary.print();
-    exit(total_summary.get_exit_code());
 }
 
 fn print_full_line() {
@@ -154,5 +48,148 @@ fn print_full_line() {
         Err(_) => {
             println!("{}", "=".repeat(15));
         }
+    }
+}
+
+fn cmd_init_config_file() -> Result<()> {
+    let path = FileConfig::init_default_config()?;
+
+    println!(
+        "generated fully defaulted config file at: {}",
+        path.display()
+    );
+
+    Ok(())
+}
+
+async fn cmd_download(command: Commands) -> Result<()> {
+    let Commands::Download {
+        id,
+        media_type,
+        quality,
+        output,
+        template,
+        range,
+        parallel,
+        reauth,
+        oauth2,
+        force,
+        no_stream_check,
+        skip_tag,
+        lyrics,
+        skip_transcode,
+        session_file,
+    } = command
+    else {
+        unreachable!();
+    };
+
+    if id.iter().any(|s| s.contains("upload")) {
+        bail!(
+            "uploads are not supported yet. please provide a valid track, album, or playlist ID."
+        );
+    }
+
+    // parse IDs and determine media type
+    let targets = if let Some(targets) = parse_id_input(&id) {
+        targets
+    } else {
+        bail!("invalid or malformed TIDAL URL/ID.");
+    };
+
+    // get config from file
+    let config = FileConfig::try_new()?;
+
+    let d = &config.download;
+    let t = &config.tags;
+
+    let download_path = if let Some(path) = expand_home_symbol(&d.output_path) {
+        if !PathBuf::from(&path).try_exists()? {
+            create_dir_all(&path)?;
+        }
+
+        path
+    } else {
+        bail!("failed to expand output_path home symbol.");
+    };
+
+    let options = DownloaderConfig {
+        download: DownloaderConfigDownload {
+            audio_quality: quality.unwrap_or(d.audio_quality).into(),
+            output_path: output.unwrap_or(download_path.clone()),
+            output_template: template.unwrap_or(d.output_template.clone()),
+            force_download: force.unwrap_or(d.force_download),
+            no_stream_check: no_stream_check.unwrap_or(d.no_stream_check),
+            max_parallel: parallel.unwrap_or(d.max_parallel),
+            range,
+            skip_transcode: skip_transcode.unwrap_or(d.skip_transcode),
+        },
+        tags: DownloaderConfigTags {
+            enable: !(skip_tag.unwrap_or(!t.enable)),
+            lyrics: lyrics.unwrap_or(t.lyrics.clone().into()).into(),
+            album: t.album,
+            album_artist: t.album_artist,
+            artist: t.artist,
+            bpm: t.bpm,
+            copyright: t.copyright,
+            cover: t.cover,
+            date: t.date,
+            disc_number: t.disc_number,
+            isrc: t.isrc,
+            initial_key_and_key_scale: t.initial_key_and_key_scale,
+            replaygain: t.replaygain.clone(),
+            title: t.title,
+            total_discs: t.total_discs,
+            total_tracks: t.total_tracks,
+            track_number: t.track_number,
+            track_version: t.track_version,
+            url: t.url,
+        },
+    };
+
+    if options.download.max_parallel < 1 {
+        bail!("max parallel downloads must be greater than zero");
+    }
+
+    // authenticate
+    let mut client = if reauth {
+        println!("forcing re-authentication...\n");
+        authenticate(&session_file, oauth2).await?
+    } else {
+        load_or_authenticate(&session_file, oauth2).await?
+    };
+
+    // refresh user info, thus validating the session and ensuring we have the latest user info
+    client.refresh_user_info().await?;
+    let user_info = client.user_info.as_ref().unwrap();
+    println!(
+        "logged in as: {} ({})\n",
+        user_info.user_id, user_info.username
+    );
+
+    println!("audio quality: {:?}", options.download.audio_quality);
+    println!(
+        "output directory: {}",
+        options.download.output_path.display()
+    );
+    print_full_line();
+
+    let forced_type = match media_type {
+        MediaTypeArg::Track => Some(MediaType::Track),
+        MediaTypeArg::Album => Some(MediaType::Album),
+        MediaTypeArg::Playlist => Some(MediaType::Playlist),
+        MediaTypeArg::Auto => None,
+    };
+
+    let downloader = Downloader::new(client, options);
+    let summary = downloader.download_media(&targets, forced_type).await?;
+
+    print_full_line();
+    summary.print();
+
+    if !summary.did_fail() {
+        Ok(())
+    } else {
+        bail!("download(s) failed.");
     }
 }

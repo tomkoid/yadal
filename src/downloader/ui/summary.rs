@@ -1,5 +1,3 @@
-use anyhow::Result;
-
 pub struct DownloadSummary {
     pub downloaded: usize,
     pub skipped: usize,
@@ -15,15 +13,11 @@ impl DownloadSummary {
         }
     }
 
-    pub fn from_results(results: Vec<(String, Result<()>)>) -> Self {
-        let mut summary = Self::new();
-        for (track_name, result) in results {
-            match result {
-                Ok(()) => summary.downloaded += 1,
-                Err(e) => summary.failed.push((track_name, e)),
-            }
-        }
-        summary
+    pub fn merge(&mut self, other: DownloadSummary) {
+        self.downloaded += other.downloaded;
+        self.skipped += other.skipped;
+
+        self.failed.extend(other.failed);
     }
 
     pub fn print(&self) {
@@ -40,7 +34,7 @@ impl DownloadSummary {
         }
     }
 
-    pub fn get_exit_code(&self) -> i32 {
-        if !self.failed.is_empty() { 1 } else { 0 }
+    pub fn did_fail(&self) -> bool {
+        !self.failed.is_empty()
     }
 }
