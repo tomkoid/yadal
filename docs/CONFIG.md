@@ -50,6 +50,14 @@ These options are for deciding whether specific tags are to be written to the ou
 | track_version | Different variant of the same song, e.g. a remaster or remix | bool | true | any |
 | url | TIDAL track URL | bool | true | any |
 
+### ui
+
+These options are for the user interface of yadal.
+
+| Field            | Explanation                           | Type | Default | Possible Values |
+| ---------------- | ------------------------------------- | ---- | ------- | --------------- |
+| `show_user_info` | Shows user ID and username on startup | bool | `true`  | `true`, `false` |
+
 ## Templating
 
 The templating language is MiniJinja.  
