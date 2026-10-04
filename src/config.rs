@@ -188,7 +188,7 @@ impl FileConfig {
         }
     }
 
-    fn get_default_path() -> io::Result<PathBuf> {
+    pub fn get_default_path() -> io::Result<PathBuf> {
         if let Some(config_dir) = dirs::config_dir() {
             Ok(config_dir.join("yadal").join("config.toml"))
         } else {

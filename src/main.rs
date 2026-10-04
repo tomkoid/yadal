@@ -40,18 +40,15 @@ async fn main() -> Result<()> {
     }
 }
 
-fn print_full_line() {
-    match crossterm::terminal::size() {
-        Ok((width, _)) => {
-            println!("{}", "=".repeat(width as usize));
-        }
-        Err(_) => {
-            println!("{}", "=".repeat(15));
-        }
-    }
-}
-
 fn cmd_init_config_file() -> Result<()> {
+    let config_path = FileConfig::get_default_path()?;
+    if config_path.try_exists()? {
+        bail!(
+            "config file already exists at: {}\nplease remove the config file before making a new one.",
+            config_path.display()
+        );
+    }
+
     let path = FileConfig::init_default_config()?;
 
     println!(
@@ -195,5 +192,16 @@ async fn cmd_download(command: Commands) -> Result<()> {
         Ok(())
     } else {
         bail!("download(s) failed.");
+    }
+}
+
+fn print_full_line() {
+    match crossterm::terminal::size() {
+        Ok((width, _)) => {
+            println!("{}", "=".repeat(width as usize));
+        }
+        Err(_) => {
+            println!("{}", "=".repeat(15));
+        }
     }
 }
